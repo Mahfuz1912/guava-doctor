@@ -1,50 +1,58 @@
 package com.guavacare.ai.presentation.screens.insights
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.guavacare.ai.core.common.AppStrings
 import com.guavacare.ai.domain.model.AppLanguage
-import com.guavacare.ai.domain.model.DailyScanActivity
 import com.guavacare.ai.domain.model.GuavaLeafClass
 import com.guavacare.ai.domain.model.OrchardInsightsSummary
+import com.guavacare.ai.domain.model.ScanRecord
+import com.guavacare.ai.domain.usecase.OrchardInsightsCalculator
 import com.guavacare.ai.presentation.components.AdvisoryWarningBanner
-import com.guavacare.ai.presentation.components.ClassStatusBadge
 import com.guavacare.ai.presentation.components.EmptyStateCard
 import com.guavacare.ai.presentation.components.MetricStatCard
-import com.guavacare.ai.presentation.theme.JetBrainsMonoFamily
 import com.guavacare.ai.presentation.theme.LocalIsDarkTheme
 import com.guavacare.ai.presentation.theme.leafClassPalette
+
+private enum class InsightsRange(val daysBack: Int?, val tag: String) {
+    ALL(null, "all"),
+    LAST_7_DAYS(7, "7d"),
+    LAST_30_DAYS(30, "30d")
+}
 
 @Composable
 fun InsightsScreen(
@@ -52,9 +60,54 @@ fun InsightsScreen(
     language: AppLanguage,
     insights: OrchardInsightsSummary,
     onStartScan: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scans: List<ScanRecord> = emptyList(),
+    onOpenHistoryWithClass: (GuavaLeafClass?) -> Unit = {}
 ) {
     val isDark = LocalIsDarkTheme.current
+    var selectedRange by remember { mutableStateOf(InsightsRange.ALL) }
+    var selectedLeafClass by remember { mutableStateOf<GuavaLeafClass?>(null) }
+
+    val calculator = remember { OrchardInsightsCalculator() }
+    val filteredScans = remember(scans, selectedRange) {
+        val days = selectedRange.daysBack
+        if (days == null) {
+            scans
+        } else {
+            val cutoff = System.currentTimeMillis() - days * 24L * 60L * 60L * 1000L
+            scans.filter { it.timestamp >= cutoff }
+        }
+    }
+
+    val activeInsights = remember(scans, filteredScans, insights, selectedRange) {
+        if (scans.isEmpty() && selectedRange == InsightsRange.ALL) {
+            insights
+        } else {
+            calculator.calculate(filteredScans)
+        }
+    }
+
+    val avgConfidencePct = remember(filteredScans) {
+        val confidences = filteredScans.mapNotNull { it.calibratedConfidence }
+        if (confidences.isEmpty()) null else ((confidences.average() * 100.0).toInt()).coerceIn(0, 100)
+    }
+
+    val orchardStats = remember(filteredScans) {
+        filteredScans
+            .filter { it.orchardName.isNotBlank() }
+            .groupBy { it.orchardName.trim() }
+            .map { (name, records) ->
+                val healthy = records.count { it.predictedClass == GuavaLeafClass.HEALTHY }
+                OrchardGroupStat(
+                    orchardName = name,
+                    total = records.size,
+                    healthy = healthy,
+                    affected = records.size - healthy
+                )
+            }
+            .sortedByDescending { it.total }
+            .take(5)
+    }
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -63,19 +116,97 @@ fun InsightsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .widthIn(max = 680.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .widthIn(max = 680.dp)
+                .testTag("insights_lazy_column"),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Header with quick scan action
             item {
-                Text(
-                    text = strings.insightsTitle,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = strings.insightsTitle,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = strings.insightsSubtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (activeInsights.totalScans > 0) {
+                        Spacer(modifier = Modifier.width(12.dp))
+                        FilledTonalButton(
+                            onClick = onStartScan,
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 48.dp)
+                                .testTag("insights_quick_scan_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CameraAlt,
+                                contentDescription = null,
+                                modifier = Modifier.size(17.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = strings.insightsScanNowAction,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Time-range Filter Chips (only when scans exist)
+            if (scans.isNotEmpty()) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val ranges = listOf(
+                            InsightsRange.ALL to strings.filterAllTime,
+                            InsightsRange.LAST_7_DAYS to strings.filter7Days,
+                            InsightsRange.LAST_30_DAYS to strings.filter30Days
+                        )
+                        ranges.forEach { (range, label) ->
+                            FilterChip(
+                                selected = selectedRange == range,
+                                onClick = {
+                                    selectedRange = range
+                                    selectedLeafClass = null
+                                },
+                                label = { Text(label) },
+                                modifier = Modifier.testTag("insights_range_${range.tag}")
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Orchard Health Hero Card with Animated Radial Gauge
+            item {
+                OrchardHealthHeroCard(
+                    strings = strings,
+                    insights = activeInsights,
+                    avgConfidencePct = avgConfidencePct,
+                    isDark = isDark
                 )
             }
 
-            // Key Stat Counters
+            // 3-Column Key Metric Counters
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -83,68 +214,45 @@ fun InsightsScreen(
                 ) {
                     MetricStatCard(
                         label = strings.totalScans,
-                        value = insights.totalScans.toString(),
+                        value = activeInsights.totalScans.toString(),
                         icon = Icons.Filled.QrCodeScanner,
                         accentColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f)
                     )
                     MetricStatCard(
                         label = strings.healthyLeaves,
-                        value = insights.healthyCount.toString(),
+                        value = activeInsights.healthyCount.toString(),
                         icon = Icons.Filled.CheckCircle,
                         accentColor = leafClassPalette(GuavaLeafClass.HEALTHY, isDark).accent,
                         modifier = Modifier.weight(1f)
                     )
                     MetricStatCard(
                         label = strings.affectedLeaves,
-                        value = insights.affectedCount.toString(),
+                        value = activeInsights.affectedCount.toString(),
                         icon = Icons.Filled.HealthAndSafety,
-                        accentColor = MaterialTheme.colorScheme.tertiary,
+                        accentColor = leafClassPalette(GuavaLeafClass.ANTHRACNOSE, isDark).accent,
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            // Most Frequently Detected Condition
-            insights.mostFrequentCondition?.let { topCondition ->
+            // Most Frequently Detected Condition Spotlight
+            activeInsights.mostFrequentCondition?.let { topCondition ->
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = strings.mostFrequentCondition,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                ClassStatusBadge(
-                                    leafClass = topCondition,
-                                    language = language
-                                )
-                            }
-                            Text(
-                                text = "${insights.classDistribution[topCondition] ?: 0}/${insights.totalScans}",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
+                    TopFindingSpotlightCard(
+                        strings = strings,
+                        language = language,
+                        topCondition = topCondition,
+                        count = activeInsights.classDistribution[topCondition] ?: 0,
+                        total = activeInsights.totalScans,
+                        isDark = isDark,
+                        onViewInHistory = { onOpenHistoryWithClass(topCondition) }
+                    )
                 }
             }
 
-            // Render Charts ONLY when sufficient data exists (>= 2 scans)
-            if (insights.totalScans < 2) {
+            // Render Charts when sufficient data exists (>= 2 scans)
+            if (activeInsights.totalScans < 2) {
                 item {
                     EmptyStateCard(
                         icon = Icons.Filled.BarChart,
@@ -155,82 +263,40 @@ fun InsightsScreen(
                     )
                 }
             } else {
-                // Category Distribution Breakdown
+                // Multi-Segment Donut Chart & Interactive Ranked Breakdown
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(
-                                text = strings.categoryDistribution,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            val total = insights.totalScans.coerceAtLeast(1)
-                            GuavaLeafClass.entries.forEach { leafClass ->
-                                val count = insights.classDistribution[leafClass] ?: 0
-                                val ratio = count.toFloat() / total.toFloat()
-                                val pct = (ratio * 100f).toInt()
-                                val palette = leafClassPalette(leafClass, isDark)
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = leafClass.localizedName(language),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "$count ($pct%)",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    LinearProgressIndicator(
-                                        progress = { ratio },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(8.dp)
-                                            .clip(RoundedCornerShape(999.dp)),
-                                        color = palette.accent,
-                                        trackColor = MaterialTheme.colorScheme.surfaceContainerLow
-                                    )
-                                }
-                            }
+                    CategoryDistributionCard(
+                        strings = strings,
+                        language = language,
+                        insights = activeInsights,
+                        isDark = isDark,
+                        selectedClass = selectedLeafClass,
+                        onSelectClass = { clicked ->
+                            selectedLeafClass = if (selectedLeafClass == clicked) null else clicked
+                        },
+                        onOpenClassInHistory = { cls ->
+                            onOpenHistoryWithClass(cls)
                         }
-                    }
+                    )
                 }
 
-                // Weekly Scanning Activity Chart
+                // Interactive 7-Day Scanning Activity Bar Chart
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Text(
-                                text = strings.weeklyActivity,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            WeeklyActivityBarChart(activity = insights.weeklyActivity)
-                        }
-                    }
+                    WeeklyActivityCard(
+                        strings = strings,
+                        activity = activeInsights.weeklyActivity
+                    )
+                }
+            }
+
+            // Orchard & Plot Breakdown (when user has tagged scans with orchard names)
+            if (orchardStats.isNotEmpty()) {
+                item {
+                    OrchardBreakdownCard(
+                        strings = strings,
+                        orchards = orchardStats,
+                        isDark = isDark
+                    )
                 }
             }
 
@@ -241,73 +307,7 @@ fun InsightsScreen(
                 )
             }
 
-            item { Spacer(modifier = Modifier.height(12.dp)) }
-        }
-    }
-}
-
-@Composable
-private fun WeeklyActivityBarChart(
-    activity: List<DailyScanActivity>,
-    modifier: Modifier = Modifier
-) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    val maxCount = (activity.maxOfOrNull { it.count } ?: 1).coerceAtLeast(1)
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(140.dp)
-        ) {
-            if (activity.isEmpty()) return@Canvas
-            val slotWidth = size.width / activity.size
-            val barWidth = (slotWidth * 0.46f).coerceAtMost(32.dp.toPx())
-            val radius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
-
-            activity.forEachIndexed { idx, day ->
-                val centerX = slotWidth * idx + slotWidth / 2f
-                val left = centerX - barWidth / 2f
-                drawRoundRect(
-                    color = trackColor,
-                    topLeft = Offset(left, 0f),
-                    size = Size(barWidth, size.height),
-                    cornerRadius = radius
-                )
-                if (day.count > 0) {
-                    val barHeight = (day.count.toFloat() / maxCount.toFloat()) * size.height
-                    drawRoundRect(
-                        color = primaryColor,
-                        topLeft = Offset(left, size.height - barHeight),
-                        size = Size(barWidth, barHeight.coerceAtLeast(10.dp.toPx())),
-                        cornerRadius = radius
-                    )
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceAround
-        ) {
-            activity.forEach { day ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = day.count.toString(),
-                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = JetBrainsMonoFamily),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = day.dayLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }

@@ -40,14 +40,19 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.guavacare.ai.core.common.BilingualStrings
+import com.guavacare.ai.domain.model.AuthGateReason
+import com.guavacare.ai.domain.model.AuthUiState
 import com.guavacare.ai.domain.model.isForceUpdateGateActive
 import com.guavacare.ai.presentation.navigation.GuavaCareRoutes
 import com.guavacare.ai.presentation.navigation.topLevelDestinations
 import com.guavacare.ai.presentation.screens.about.AboutScreen
+import com.guavacare.ai.presentation.screens.auth.LoginScreen
+import com.guavacare.ai.presentation.screens.auth.RegisterScreen
 import com.guavacare.ai.presentation.screens.diagnosis.DiagnosisScreen
 import com.guavacare.ai.presentation.screens.history.HistoryScreen
 import com.guavacare.ai.presentation.screens.home.HomeScreen
 import com.guavacare.ai.presentation.screens.insights.InsightsScreen
+import com.guavacare.ai.presentation.screens.profile.ProfileScreen
 import com.guavacare.ai.presentation.screens.scanner.ScannerScreen
 import com.guavacare.ai.presentation.screens.settings.AboutResearchScreen
 import com.guavacare.ai.presentation.screens.settings.PrivacyPolicyScreen
@@ -69,6 +74,16 @@ fun GuavaCareApp(viewModel: MainViewModel) {
     val isImportingModel by viewModel.isImportingModel.collectAsStateWithLifecycle()
     val isVerifyingModel by viewModel.isVerifyingModel.collectAsStateWithLifecycle()
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
+    val authState by viewModel.authState.collectAsStateWithLifecycle()
+    val authLoading by viewModel.authLoading.collectAsStateWithLifecycle()
+    val authError by viewModel.authError.collectAsStateWithLifecycle()
+    val authGateReason by viewModel.authGateReason.collectAsStateWithLifecycle()
+    val passwordResetLoading by viewModel.passwordResetLoading.collectAsStateWithLifecycle()
+    val passwordResetError by viewModel.passwordResetError.collectAsStateWithLifecycle()
+    val passwordResetSent by viewModel.passwordResetSent.collectAsStateWithLifecycle()
+    val cloudSyncStatus by viewModel.cloudSyncStatus.collectAsStateWithLifecycle()
+    val remainingGuestScans by viewModel.remainingGuestScans.collectAsStateWithLifecycle()
+    val isScanLimitReached by viewModel.isScanLimitReached.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val strings = remember(prefs.language) { BilingualStrings.get(prefs.language) }
@@ -87,12 +102,50 @@ fun GuavaCareApp(viewModel: MainViewModel) {
     }
 
     fun navigateTopLevel(route: String) {
+        if (route == GuavaCareRoutes.ROUTE_SCANNER && isScanLimitReached) {
+            viewModel.resetScanState()
+            viewModel.setAuthGateReason(AuthGateReason.SCAN_LIMIT_REACHED)
+            navController.navigate(GuavaCareRoutes.ROUTE_LOGIN) {
+                launchSingleTop = true
+            }
+            return
+        }
         navController.navigate(route) {
             popUpTo(navController.graph.findStartDestination().id) {
                 saveState = true
             }
             launchSingleTop = true
             restoreState = true
+        }
+    }
+
+    fun openLogin(reason: AuthGateReason = AuthGateReason.OPTIONAL) {
+        viewModel.setAuthGateReason(reason)
+        navController.navigate(GuavaCareRoutes.ROUTE_LOGIN) {
+            launchSingleTop = true
+        }
+    }
+
+    fun openRegister() {
+        viewModel.clearAuthError()
+        navController.navigate(GuavaCareRoutes.ROUTE_REGISTER) {
+            launchSingleTop = true
+        }
+    }
+
+    fun openProfile() {
+        viewModel.clearPasswordResetState()
+        navController.navigate(GuavaCareRoutes.ROUTE_PROFILE) {
+            launchSingleTop = true
+        }
+    }
+
+    fun navigateWithScanQuotaGate(onAllowed: () -> Unit) {
+        if (isScanLimitReached) {
+            viewModel.resetScanState()
+            openLogin(AuthGateReason.SCAN_LIMIT_REACHED)
+        } else {
+            onAllowed()
         }
     }
 
@@ -235,13 +288,17 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                 insights = insights,
                                 tips = viewModel.advisoryBundle.tips,
                                 onQuickScanClick = {
-                                    viewModel.resetScanState()
-                                    navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER)
+                                    navigateWithScanQuotaGate {
+                                        viewModel.resetScanState()
+                                        navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER)
+                                    }
                                 },
                                 onGalleryUploadClick = {
-                                    viewModel.resetScanState()
-                                    autoLaunchGallery = true
-                                    navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER)
+                                    navigateWithScanQuotaGate {
+                                        viewModel.resetScanState()
+                                        autoLaunchGallery = true
+                                        navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER)
+                                    }
                                 },
                                 onOpenScan = { record ->
                                     viewModel.reopenSavedScan(record) {
@@ -256,7 +313,12 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                 onToggleLanguage = { viewModel.toggleLanguage() },
                                 modelHealth = modelHealth,
                                 isVerifyingModel = isVerifyingModel,
-                                onRefreshModelStatus = { viewModel.verifyAndPreloadModel() }
+                                onRefreshModelStatus = { viewModel.verifyAndPreloadModel() },
+                                authState = authState,
+                                remainingGuestScans = remainingGuestScans,
+                                onOpenLogin = { openLogin(AuthGateReason.OPTIONAL) },
+                                onOpenRegister = { openRegister() },
+                                onOpenProfile = { openProfile() }
                             )
                         }
 
@@ -271,14 +333,20 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                 onGalleryAutoLaunchConsumed = { autoLaunchGallery = false },
                                 onCreateCaptureFile = { viewModel.createCaptureFile() },
                                 onImageCaptured = { file ->
-                                    viewModel.stageCapturedFileForPreview(file)
+                                    navigateWithScanQuotaGate {
+                                        viewModel.stageCapturedFileForPreview(file)
+                                    }
                                 },
                                 onGalleryImageSelected = { uri ->
-                                    viewModel.stageGalleryUriForPreview(uri)
+                                    navigateWithScanQuotaGate {
+                                        viewModel.stageGalleryUriForPreview(uri)
+                                    }
                                 },
                                 onConfirmPreview = {
-                                    viewModel.confirmPreviewAndAnalyze {
-                                        navController.navigate(GuavaCareRoutes.ROUTE_DIAGNOSIS)
+                                    navigateWithScanQuotaGate {
+                                        viewModel.confirmPreviewAndAnalyze {
+                                            navController.navigate(GuavaCareRoutes.ROUTE_DIAGNOSIS)
+                                        }
                                     }
                                 },
                                 onDiscardPreview = { viewModel.discardPreview() },
@@ -292,7 +360,10 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                 isImportingModel = isImportingModel,
                                 onImportTfliteModel = { uri ->
                                     viewModel.importTfliteModel(uri, strings.modelImportSuccess)
-                                }
+                                },
+                                isAuthenticated = authState is AuthUiState.Authenticated,
+                                remainingGuestScans = remainingGuestScans,
+                                onOpenLoginForLimit = { openLogin(AuthGateReason.OPTIONAL) }
                             )
                         }
 
@@ -356,7 +427,15 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                 strings = strings,
                                 language = prefs.language,
                                 insights = insights,
-                                onStartScan = { navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER) }
+                                scans = allScans,
+                                onStartScan = { navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER) },
+                                onOpenHistoryWithClass = { leafClass ->
+                                    viewModel.clearHistoryFilters()
+                                    if (leafClass != null) {
+                                        viewModel.updateClassFilter(leafClass)
+                                    }
+                                    navigateTopLevel(GuavaCareRoutes.ROUTE_HISTORY)
+                                }
                             )
                         }
 
@@ -375,7 +454,8 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                     navController.navigate(GuavaCareRoutes.ROUTE_SETTINGS)
                                 },
                                 updateState = updateState,
-                                onCheckForUpdates = { viewModel.checkForUpdates(isManual = true) }
+                                onCheckForUpdates = { viewModel.checkForUpdates(isManual = true) },
+                                advisories = viewModel.advisoryBundle.advisories
                             )
                         }
 
@@ -407,7 +487,147 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                     viewModel.removeImportedTfliteModel(strings.modelRemovedSuccess)
                                 },
                                 updateState = updateState,
-                                onCheckForUpdates = { viewModel.checkForUpdates(isManual = true) }
+                                onCheckForUpdates = { viewModel.checkForUpdates(isManual = true) },
+                                authState = authState,
+                                remainingGuestScans = remainingGuestScans,
+                                cloudSyncStatus = cloudSyncStatus,
+                                isAuthLoading = authLoading,
+                                onOpenLogin = { openLogin(AuthGateReason.OPTIONAL) },
+                                onOpenRegister = { openRegister() },
+                                onUpdateProfile = { name, division, district, upazila ->
+                                    viewModel.updateUserProfile(
+                                        fullName = name,
+                                        division = division,
+                                        district = district,
+                                        upazila = upazila,
+                                        successToast = strings.profileUpdatedSuccess
+                                    )
+                                },
+                                onSignOut = {
+                                    viewModel.signOut(
+                                        activityContext = context,
+                                        signedOutToast = strings.signedOutToast
+                                    )
+                                },
+                                onOpenProfile = { openProfile() }
+                            )
+                        }
+
+                        composable(GuavaCareRoutes.ROUTE_PROFILE) {
+                            ProfileScreen(
+                                strings = strings,
+                                language = prefs.language,
+                                authState = authState,
+                                insights = insights,
+                                cloudSyncStatus = cloudSyncStatus,
+                                isSavingProfile = authLoading,
+                                isSendingPasswordReset = passwordResetLoading,
+                                passwordResetError = passwordResetError,
+                                passwordResetSent = passwordResetSent,
+                                onUpdateProfile = { name, division, district, upazila ->
+                                    viewModel.updateUserProfile(
+                                        fullName = name,
+                                        division = division,
+                                        district = district,
+                                        upazila = upazila,
+                                        successToast = strings.profileUpdatedSuccess
+                                    )
+                                },
+                                onSendPasswordResetEmail = { email ->
+                                    viewModel.sendPasswordResetEmail(
+                                        email = email,
+                                        successToast = strings.passwordResetSentSuccess
+                                    )
+                                },
+                                onClearPasswordResetState = { viewModel.clearPasswordResetState() },
+                                onSignOut = {
+                                    viewModel.signOut(
+                                        activityContext = context,
+                                        signedOutToast = strings.signedOutToast
+                                    )
+                                    navController.popBackStack(GuavaCareRoutes.ROUTE_HOME, inclusive = false)
+                                },
+                                onOpenLogin = { openLogin(AuthGateReason.OPTIONAL) },
+                                onOpenRegister = { openRegister() },
+                                onToggleLanguage = { viewModel.toggleLanguage() },
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        composable(GuavaCareRoutes.ROUTE_LOGIN) {
+                            LoginScreen(
+                                strings = strings,
+                                language = prefs.language,
+                                gateReason = authGateReason,
+                                isLoading = authLoading,
+                                errorMessage = authError,
+                                onEmailSignInClick = { email, password ->
+                                    viewModel.signInWithEmailPassword(
+                                        email = email,
+                                        password = password,
+                                        welcomeBackToast = strings.welcomeBackToast,
+                                        onAuthenticated = {
+                                            navController.popBackStack(GuavaCareRoutes.ROUTE_HOME, inclusive = false)
+                                        }
+                                    )
+                                },
+                                onGoogleSignInClick = {
+                                    viewModel.signInWithGoogle(
+                                        activityContext = context,
+                                        welcomeBackToast = strings.welcomeBackToast,
+                                        onAuthenticated = {
+                                            navController.popBackStack(GuavaCareRoutes.ROUTE_HOME, inclusive = false)
+                                        }
+                                    )
+                                },
+                                onNavigateToRegister = { openRegister() },
+                                onToggleLanguage = { viewModel.toggleLanguage() },
+                                onBack = { navController.popBackStack() },
+                                isSendingPasswordReset = passwordResetLoading,
+                                passwordResetError = passwordResetError,
+                                passwordResetSent = passwordResetSent,
+                                onSendPasswordResetEmail = { email ->
+                                    viewModel.sendPasswordResetEmail(
+                                        email = email,
+                                        successToast = strings.passwordResetSentSuccess
+                                    )
+                                },
+                                onClearPasswordResetState = { viewModel.clearPasswordResetState() }
+                            )
+                        }
+
+                        composable(GuavaCareRoutes.ROUTE_REGISTER) {
+                            RegisterScreen(
+                                strings = strings,
+                                language = prefs.language,
+                                isLoading = authLoading,
+                                errorMessage = authError,
+                                onSubmitEmailRegistration = { fullName, email, password, division, district, upazila ->
+                                    viewModel.registerWithEmailPassword(
+                                        fullName = fullName,
+                                        email = email,
+                                        password = password,
+                                        division = division,
+                                        district = district,
+                                        upazila = upazila,
+                                        successToast = strings.accountCreatedAndSyncedToast,
+                                        onRegistrationComplete = {
+                                            navController.popBackStack(GuavaCareRoutes.ROUTE_HOME, inclusive = false)
+                                        }
+                                    )
+                                },
+                                onGoogleSignInClick = {
+                                    viewModel.signInWithGoogle(
+                                        activityContext = context,
+                                        welcomeBackToast = strings.welcomeBackToast,
+                                        onAuthenticated = {
+                                            navController.popBackStack(GuavaCareRoutes.ROUTE_HOME, inclusive = false)
+                                        }
+                                    )
+                                },
+                                onNavigateToLogin = { openLogin(authGateReason) },
+                                onToggleLanguage = { viewModel.toggleLanguage() },
+                                onBack = { navController.popBackStack() }
                             )
                         }
 

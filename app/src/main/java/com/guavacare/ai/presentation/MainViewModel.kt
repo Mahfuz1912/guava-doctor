@@ -1,13 +1,20 @@
 package com.guavacare.ai.presentation
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import androidx.core.graphics.createBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.BuildConfig
+import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.auth
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.guavacare.ai.ai.classifier.SvmMulticlassStrategy
 import com.guavacare.ai.ai.explainability.ExplainabilityResult
 import com.guavacare.ai.ai.explainability.ExplanationMethodType
@@ -17,16 +24,29 @@ import com.guavacare.ai.ai.inference.ModelHealthStatus
 import com.guavacare.ai.ai.inference.PredictionOutcome
 import com.guavacare.ai.ai.inference.PredictionResult
 import com.guavacare.ai.ai.preprocessing.ImageQualityReport
+import com.guavacare.ai.core.common.BilingualStrings
 import com.guavacare.ai.core.constants.ModelConstants
 import com.guavacare.ai.core.constants.UpdateConstants
+import com.guavacare.ai.data.remote.GoogleAuthHelper
+import com.guavacare.ai.data.remote.GoogleSignInOutcome
+import com.guavacare.ai.data.remote.PasswordResetOutcome
+import com.guavacare.ai.data.repository.CloudAccountRepository
 import com.guavacare.ai.data.repository.DownloadProgressEvent
 import com.guavacare.ai.data.repository.ScanRepository
 import com.guavacare.ai.di.AppContainer
+import com.guavacare.ai.domain.model.AUTH_PROVIDER_GOOGLE
+import com.guavacare.ai.domain.model.AUTH_PROVIDER_PASSWORD
 import com.guavacare.ai.domain.model.AdvisoryBundle
 import com.guavacare.ai.domain.model.AppLanguage
 import com.guavacare.ai.domain.model.AppReleaseInfo
 import com.guavacare.ai.domain.model.AppUpdateState
 import com.guavacare.ai.domain.model.AppVersionComparator
+import com.guavacare.ai.domain.model.AuthGateReason
+import com.guavacare.ai.domain.model.AuthUiState
+import com.guavacare.ai.domain.model.CloudScanRecord
+import com.guavacare.ai.domain.model.CloudSyncStatus
+import com.guavacare.ai.domain.model.EmailUniquenessCheckResult
+import com.guavacare.ai.domain.model.GUEST_FREE_SCAN_LIMIT
 import com.guavacare.ai.domain.model.GuavaLeafClass
 import com.guavacare.ai.domain.model.HistoryDateFilter
 import com.guavacare.ai.domain.model.OrchardInsightsSummary
@@ -90,12 +110,67 @@ class MainViewModel(
             initialValue = UserPreferences()
         )
 
-    val allScans: StateFlow<List<ScanRecord>> = container.scanRepository.allScans
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList()
-        )
+    private val _authState = MutableStateFlow<AuthUiState>(AuthUiState.Guest)
+    val authState: StateFlow<AuthUiState> = _authState.asStateFlow()
+
+    private val _authLoading = MutableStateFlow(false)
+    val authLoading: StateFlow<Boolean> = _authLoading.asStateFlow()
+
+    private val _authError = MutableStateFlow<String?>(null)
+    val authError: StateFlow<String?> = _authError.asStateFlow()
+
+    private val _authGateReason = MutableStateFlow(AuthGateReason.OPTIONAL)
+    val authGateReason: StateFlow<AuthGateReason> = _authGateReason.asStateFlow()
+
+    private val _passwordResetLoading = MutableStateFlow(false)
+    val passwordResetLoading: StateFlow<Boolean> = _passwordResetLoading.asStateFlow()
+
+    private val _passwordResetError = MutableStateFlow<String?>(null)
+    val passwordResetError: StateFlow<String?> = _passwordResetError.asStateFlow()
+
+    private val _passwordResetSent = MutableStateFlow(false)
+    val passwordResetSent: StateFlow<Boolean> = _passwordResetSent.asStateFlow()
+
+    private val _cloudSyncStatus = MutableStateFlow(CloudSyncStatus.IDLE)
+    val cloudSyncStatus: StateFlow<CloudSyncStatus> = _cloudSyncStatus.asStateFlow()
+
+    private val _cloudScans = MutableStateFlow<List<CloudScanRecord>>(emptyList())
+
+    val remainingGuestScans: StateFlow<Int> = combine(preferences, _authState) { prefs, auth ->
+        if (auth is AuthUiState.Authenticated) {
+            GUEST_FREE_SCAN_LIMIT
+        } else {
+            (GUEST_FREE_SCAN_LIMIT - prefs.guestScanCount).coerceAtLeast(0)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = GUEST_FREE_SCAN_LIMIT
+    )
+
+    val isScanLimitReached: StateFlow<Boolean> = combine(preferences, _authState) { prefs, auth ->
+        auth !is AuthUiState.Authenticated && prefs.guestScanCount >= GUEST_FREE_SCAN_LIMIT
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false
+    )
+
+    val allScans: StateFlow<List<ScanRecord>> = combine(
+        container.scanRepository.allScans,
+        _cloudScans,
+        _authState
+    ) { localScans, cloudScans, auth ->
+        if (auth !is AuthUiState.Authenticated || cloudScans.isEmpty()) {
+            localScans
+        } else {
+            mergeLocalAndCloudScans(localScans, cloudScans)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList()
+    )
 
     val insights: StateFlow<OrchardInsightsSummary> = allScans
         .map { container.insightsCalculator.calculate(it) }
@@ -168,11 +243,612 @@ class MainViewModel(
 
     private var updateCheckJob: Job? = null
     private var updateDownloadJob: Job? = null
+    private var cloudProfileJob: Job? = null
+    private var cloudScansJob: Job? = null
+    private var activeObservedUid: String? = null
+    private var migratedForUid: String? = null
+    private var authStateListener: FirebaseAuth.AuthStateListener? = null
     private val saveMutex = Mutex()
+    private val syntheticCloudDocIds = mutableMapOf<Long, String>()
 
     init {
         verifyAndPreloadModel()
         checkForUpdates(isManual = false)
+        attachFirebaseAuthObserverIfAvailable()
+    }
+
+    private fun attachFirebaseAuthObserverIfAvailable() {
+        if (!container.isFirebaseInitialized()) return
+        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            handleFirebaseAuthUserChange(firebaseAuth.currentUser)
+        }
+        authStateListener = listener
+        runCatching { Firebase.auth.addAuthStateListener(listener) }
+            .onFailure { Log.w("Auth", "Unable to attach FirebaseAuth listener", it) }
+    }
+
+    private fun handleFirebaseAuthUserChange(user: FirebaseUser?) {
+        if (user == null) {
+            cancelCloudListeners()
+            activeObservedUid = null
+            migratedForUid = null
+            _authState.value = AuthUiState.Guest
+            return
+        }
+
+        if (user.uid == activeObservedUid && _authState.value is AuthUiState.Authenticated) {
+            return
+        }
+
+        // Wait while an explicit registration/sign-in coroutine is creating the profile
+        if (_authLoading.value) return
+
+        cancelCloudListeners()
+        activeObservedUid = user.uid
+        _authState.value = AuthUiState.CheckingProfile(
+            uid = user.uid,
+            email = user.email.orEmpty(),
+            suggestedName = user.displayName.orEmpty(),
+            photoUrl = user.photoUrl?.toString()
+        )
+
+        cloudProfileJob = viewModelScope.launch {
+            val detectedProvider = when {
+                user.providerData.any { it.providerId == "password" } -> AUTH_PROVIDER_PASSWORD
+                user.providerData.any { it.providerId == "google.com" } -> AUTH_PROVIDER_GOOGLE
+                else -> AUTH_PROVIDER_GOOGLE
+            }
+            val userEmail = user.email.orEmpty()
+            if (userEmail.isNotBlank()) {
+                val lockCheck = container.cloudAccountRepository.claimOrVerifyUniqueEmail(
+                    uid = user.uid,
+                    email = userEmail,
+                    provider = detectedProvider
+                )
+                if (lockCheck is EmailUniquenessCheckResult.AlreadyUsedByOtherProvider ||
+                    lockCheck is EmailUniquenessCheckResult.AlreadyUsedByAnotherAccount
+                ) {
+                    val existingProvider = when (lockCheck) {
+                        is EmailUniquenessCheckResult.AlreadyUsedByOtherProvider -> lockCheck.existingProvider
+                        is EmailUniquenessCheckResult.AlreadyUsedByAnotherAccount -> lockCheck.existingProvider
+                        else -> ""
+                    }
+                    GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
+                        context = null,
+                        user = user,
+                        deleteIfNewlyCreated = false
+                    )
+                    activeObservedUid = null
+                    _authState.value = AuthUiState.Guest
+                    _authError.value = formatEmailConflictMessage(existingProvider)
+                    return@launch
+                }
+            }
+
+            val profileResult = container.cloudAccountRepository.ensureDirectSignInProfile(
+                uid = user.uid,
+                displayName = user.displayName.orEmpty(),
+                email = userEmail,
+                photoUrl = user.photoUrl?.toString(),
+                authProvider = detectedProvider
+            )
+            val profile = profileResult.getOrElse {
+                com.guavacare.ai.domain.model.UserProfile(
+                    id = user.uid,
+                    userId = user.uid,
+                    fullName = user.displayName?.takeIf { it.isNotBlank() }
+                        ?: userEmail.substringBefore("@").ifBlank { "Guava Grower" },
+                    email = userEmail,
+                    authProvider = detectedProvider,
+                    photoUrl = user.photoUrl?.toString(),
+                    profileCompleted = true
+                )
+            }
+            _authState.value = AuthUiState.Authenticated(profile)
+            startAuthenticatedCloudSync(user.uid)
+        }
+    }
+
+    private fun startAuthenticatedCloudSync(uid: String) {
+        cloudProfileJob?.cancel()
+        cloudScansJob?.cancel()
+        _cloudSyncStatus.value = CloudSyncStatus.SYNCING
+
+        // 1. Live profile listener (authenticated uid only)
+        cloudProfileJob = viewModelScope.launch {
+            try {
+                container.cloudAccountRepository.observeUserProfile(uid).collect { profile ->
+                    if (profile != null && profile.profileCompleted) {
+                        _authState.value = AuthUiState.Authenticated(profile)
+                    }
+                }
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (e: FirebaseFirestoreException) {
+                _cloudSyncStatus.value = CloudSyncStatus.ERROR
+            } catch (e: Exception) {
+                _cloudSyncStatus.value = CloudSyncStatus.ERROR
+            }
+        }
+
+        // 2. Migrate any local guest scans (scans 1..3) + listen to cloud scans
+        cloudScansJob = viewModelScope.launch {
+            if (migratedForUid != uid) {
+                val localScans = runCatching { container.scanRepository.allScans.first() }
+                    .getOrDefault(emptyList())
+                if (localScans.isNotEmpty()) {
+                    val migrationResult = container.cloudAccountRepository.migrateLocalScansToCloud(uid, localScans)
+                    if (migrationResult.isSuccess) {
+                        migratedForUid = uid
+                    }
+                } else {
+                    migratedForUid = uid
+                }
+            }
+
+            try {
+                container.cloudAccountRepository.observeCloudScans(uid).collect { scans ->
+                    _cloudScans.value = scans
+                    _cloudSyncStatus.value = CloudSyncStatus.SYNCED
+                }
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (e: FirebaseFirestoreException) {
+                _cloudSyncStatus.value = CloudSyncStatus.ERROR
+            } catch (e: Exception) {
+                _cloudSyncStatus.value = CloudSyncStatus.ERROR
+            }
+        }
+    }
+
+    private fun cancelCloudListeners() {
+        cloudProfileJob?.cancel()
+        cloudProfileJob = null
+        cloudScansJob?.cancel()
+        cloudScansJob = null
+        _cloudScans.value = emptyList()
+        syntheticCloudDocIds.clear()
+        _cloudSyncStatus.value = CloudSyncStatus.IDLE
+    }
+
+    fun setAuthGateReason(reason: AuthGateReason) {
+        _authGateReason.value = reason
+        _authError.value = null
+    }
+
+    fun clearAuthError() {
+        _authError.value = null
+    }
+
+    fun clearPasswordResetState() {
+        _passwordResetError.value = null
+        _passwordResetSent.value = false
+    }
+
+    fun sendPasswordResetEmail(
+        email: String,
+        successToast: String
+    ) {
+        if (_passwordResetLoading.value) return
+        viewModelScope.launch {
+            _passwordResetLoading.value = true
+            _passwordResetError.value = null
+            _passwordResetSent.value = false
+            when (val outcome = GoogleAuthHelper.sendPasswordResetEmail(email)) {
+                PasswordResetOutcome.Success -> {
+                    _passwordResetLoading.value = false
+                    _passwordResetSent.value = true
+                    _snackbarMessage.value = successToast
+                }
+                is PasswordResetOutcome.Failure -> {
+                    _passwordResetLoading.value = false
+                    _passwordResetError.value = outcome.message
+                }
+            }
+        }
+    }
+
+    private fun formatEmailConflictMessage(existingProvider: String): String {
+        val currentStrings = BilingualStrings.get(preferences.value.language)
+        return when (existingProvider) {
+            AUTH_PROVIDER_PASSWORD -> currentStrings.emailAlreadyUsedWithPasswordError
+            AUTH_PROVIDER_GOOGLE -> currentStrings.emailAlreadyUsedWithGoogleError
+            else -> currentStrings.emailAlreadyRegisteredError
+        }
+    }
+
+    /**
+     * Direct one-tap Google Sign-In — no Register form required.
+     * Enforces one-email-one-account uniqueness across Google and Email/Password.
+     */
+    fun signInWithGoogle(
+        activityContext: Context,
+        welcomeBackToast: String,
+        onAuthenticated: () -> Unit
+    ) {
+        if (_authLoading.value) return
+        viewModelScope.launch {
+            _authLoading.value = true
+            _authError.value = null
+            when (val outcome = GoogleAuthHelper.signInWithGoogleButton(activityContext)) {
+                is GoogleSignInOutcome.Success -> {
+                    val user = outcome.user
+                    val email = user.email.orEmpty()
+                    when (
+                        val lockCheck = container.cloudAccountRepository.claimOrVerifyUniqueEmail(
+                            uid = user.uid,
+                            email = email,
+                            provider = AUTH_PROVIDER_GOOGLE
+                        )
+                    ) {
+                        EmailUniquenessCheckResult.Allowed -> {
+                            val profileResult = container.cloudAccountRepository.ensureDirectSignInProfile(
+                                uid = user.uid,
+                                displayName = user.displayName.orEmpty(),
+                                email = email,
+                                photoUrl = user.photoUrl?.toString(),
+                                authProvider = AUTH_PROVIDER_GOOGLE
+                            )
+                            val profile = profileResult.getOrElse {
+                                com.guavacare.ai.domain.model.UserProfile(
+                                    id = user.uid,
+                                    userId = user.uid,
+                                    fullName = user.displayName?.takeIf { it.isNotBlank() }
+                                        ?: email.substringBefore("@").ifBlank { "Guava Grower" },
+                                    email = email,
+                                    authProvider = AUTH_PROVIDER_GOOGLE,
+                                    photoUrl = user.photoUrl?.toString(),
+                                    profileCompleted = true
+                                )
+                            }
+                            activeObservedUid = user.uid
+                            _authState.value = AuthUiState.Authenticated(profile)
+                            startAuthenticatedCloudSync(user.uid)
+                            _authLoading.value = false
+                            _snackbarMessage.value = welcomeBackToast
+                            onAuthenticated()
+                        }
+
+                        is EmailUniquenessCheckResult.AlreadyUsedByOtherProvider -> {
+                            cancelCloudListeners()
+                            GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
+                                context = activityContext,
+                                user = user,
+                                deleteIfNewlyCreated = false
+                            )
+                            _authState.value = AuthUiState.Guest
+                            _authLoading.value = false
+                            _authError.value = formatEmailConflictMessage(lockCheck.existingProvider)
+                        }
+
+                        is EmailUniquenessCheckResult.AlreadyUsedByAnotherAccount -> {
+                            cancelCloudListeners()
+                            GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
+                                context = activityContext,
+                                user = user,
+                                deleteIfNewlyCreated = true
+                            )
+                            _authState.value = AuthUiState.Guest
+                            _authLoading.value = false
+                            _authError.value = formatEmailConflictMessage(lockCheck.existingProvider)
+                        }
+
+                        is EmailUniquenessCheckResult.Failure -> {
+                            cancelCloudListeners()
+                            GoogleAuthHelper.signOutCleanly(activityContext)
+                            _authState.value = AuthUiState.Guest
+                            _authLoading.value = false
+                            _authError.value = lockCheck.message
+                        }
+                    }
+                }
+                GoogleSignInOutcome.Cancelled -> {
+                    _authLoading.value = false
+                }
+                is GoogleSignInOutcome.Failure -> {
+                    _authLoading.value = false
+                    _authError.value = if (outcome.isEmailCollision) {
+                        BilingualStrings.get(preferences.value.language).emailAlreadyRegisteredError
+                    } else {
+                        outcome.message
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Email & Password sign-in on LoginScreen.
+     * Enforces one-email-one-account lock so a Google-bound email cannot be reused as a separate account.
+     */
+    fun signInWithEmailPassword(
+        email: String,
+        password: String,
+        welcomeBackToast: String,
+        onAuthenticated: () -> Unit
+    ) {
+        if (_authLoading.value) return
+        viewModelScope.launch {
+            _authLoading.value = true
+            _authError.value = null
+            when (val outcome = GoogleAuthHelper.signInWithEmailPassword(email, password)) {
+                is GoogleSignInOutcome.Success -> {
+                    val user = outcome.user
+                    val resolvedEmail = user.email ?: email.trim()
+                    when (
+                        val lockCheck = container.cloudAccountRepository.claimOrVerifyUniqueEmail(
+                            uid = user.uid,
+                            email = resolvedEmail,
+                            provider = AUTH_PROVIDER_PASSWORD
+                        )
+                    ) {
+                        EmailUniquenessCheckResult.Allowed -> {
+                            val profileResult = container.cloudAccountRepository.ensureDirectSignInProfile(
+                                uid = user.uid,
+                                displayName = user.displayName.orEmpty(),
+                                email = resolvedEmail,
+                                photoUrl = user.photoUrl?.toString(),
+                                authProvider = AUTH_PROVIDER_PASSWORD
+                            )
+                            val profile = profileResult.getOrElse {
+                                com.guavacare.ai.domain.model.UserProfile(
+                                    id = user.uid,
+                                    userId = user.uid,
+                                    fullName = user.displayName?.takeIf { it.isNotBlank() }
+                                        ?: resolvedEmail.substringBefore("@").ifBlank { "Guava Grower" },
+                                    email = resolvedEmail,
+                                    authProvider = AUTH_PROVIDER_PASSWORD,
+                                    profileCompleted = true
+                                )
+                            }
+                            activeObservedUid = user.uid
+                            _authState.value = AuthUiState.Authenticated(profile)
+                            startAuthenticatedCloudSync(user.uid)
+                            _authLoading.value = false
+                            _snackbarMessage.value = welcomeBackToast
+                            onAuthenticated()
+                        }
+
+                        is EmailUniquenessCheckResult.AlreadyUsedByOtherProvider -> {
+                            cancelCloudListeners()
+                            GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
+                                context = null,
+                                user = user,
+                                deleteIfNewlyCreated = false
+                            )
+                            _authState.value = AuthUiState.Guest
+                            _authLoading.value = false
+                            _authError.value = formatEmailConflictMessage(lockCheck.existingProvider)
+                        }
+
+                        is EmailUniquenessCheckResult.AlreadyUsedByAnotherAccount -> {
+                            cancelCloudListeners()
+                            GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
+                                context = null,
+                                user = user,
+                                deleteIfNewlyCreated = false
+                            )
+                            _authState.value = AuthUiState.Guest
+                            _authLoading.value = false
+                            _authError.value = formatEmailConflictMessage(lockCheck.existingProvider)
+                        }
+
+                        is EmailUniquenessCheckResult.Failure -> {
+                            cancelCloudListeners()
+                            GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
+                                context = null,
+                                user = user,
+                                deleteIfNewlyCreated = false
+                            )
+                            _authState.value = AuthUiState.Guest
+                            _authLoading.value = false
+                            _authError.value = lockCheck.message
+                        }
+                    }
+                }
+                GoogleSignInOutcome.Cancelled -> {
+                    _authLoading.value = false
+                }
+                is GoogleSignInOutcome.Failure -> {
+                    _authLoading.value = false
+                    _authError.value = outcome.message
+                }
+            }
+        }
+    }
+
+    /**
+     * Email & Password registration — collects Name, Email, Password, and Division/District/Upazila.
+     * Strictly guarantees one email can only be used once across both Google and Email/Password.
+     */
+    fun registerWithEmailPassword(
+        fullName: String,
+        email: String,
+        password: String,
+        division: String,
+        district: String,
+        upazila: String,
+        successToast: String,
+        onRegistrationComplete: () -> Unit
+    ) {
+        if (_authLoading.value) return
+        viewModelScope.launch {
+            _authLoading.value = true
+            _authError.value = null
+
+            val authedUser: FirebaseUser = when (
+                val outcome = GoogleAuthHelper.registerWithEmailPassword(email, password, fullName)
+            ) {
+                is GoogleSignInOutcome.Success -> outcome.user
+                GoogleSignInOutcome.Cancelled -> {
+                    _authLoading.value = false
+                    return@launch
+                }
+                is GoogleSignInOutcome.Failure -> {
+                    _authLoading.value = false
+                    _authError.value = if (outcome.isEmailCollision) {
+                        BilingualStrings.get(preferences.value.language).emailAlreadyRegisteredError
+                    } else {
+                        outcome.message
+                    }
+                    return@launch
+                }
+            }
+
+            val resolvedEmail = authedUser.email ?: email.trim()
+            val lockCheck = container.cloudAccountRepository.claimOrVerifyUniqueEmail(
+                uid = authedUser.uid,
+                email = resolvedEmail,
+                provider = AUTH_PROVIDER_PASSWORD
+            )
+            when (lockCheck) {
+                EmailUniquenessCheckResult.Allowed -> Unit
+                is EmailUniquenessCheckResult.AlreadyUsedByOtherProvider -> {
+                    GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
+                        context = null,
+                        user = authedUser,
+                        deleteIfNewlyCreated = true
+                    )
+                    _authState.value = AuthUiState.Guest
+                    _authLoading.value = false
+                    _authError.value = formatEmailConflictMessage(lockCheck.existingProvider)
+                    return@launch
+                }
+                is EmailUniquenessCheckResult.AlreadyUsedByAnotherAccount -> {
+                    GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
+                        context = null,
+                        user = authedUser,
+                        deleteIfNewlyCreated = true
+                    )
+                    _authState.value = AuthUiState.Guest
+                    _authLoading.value = false
+                    _authError.value = formatEmailConflictMessage(lockCheck.existingProvider)
+                    return@launch
+                }
+                is EmailUniquenessCheckResult.Failure -> {
+                    GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
+                        context = null,
+                        user = authedUser,
+                        deleteIfNewlyCreated = true
+                    )
+                    _authState.value = AuthUiState.Guest
+                    _authLoading.value = false
+                    _authError.value = lockCheck.message
+                    return@launch
+                }
+            }
+
+            val saveResult = container.cloudAccountRepository.createOrCompleteUserProfile(
+                uid = authedUser.uid,
+                fullName = fullName,
+                division = division,
+                district = district,
+                upazila = upazila,
+                email = resolvedEmail,
+                photoUrl = authedUser.photoUrl?.toString(),
+                authProvider = AUTH_PROVIDER_PASSWORD
+            )
+
+            saveResult.onSuccess { profile ->
+                activeObservedUid = authedUser.uid
+                _authState.value = AuthUiState.Authenticated(profile)
+                startAuthenticatedCloudSync(authedUser.uid)
+                _authLoading.value = false
+                _snackbarMessage.value = successToast
+                onRegistrationComplete()
+            }.onFailure { err ->
+                _authLoading.value = false
+                _authError.value = err.localizedMessage
+                    ?: "Could not save your profile. Please check your connection and try again."
+            }
+        }
+    }
+
+    fun updateUserProfile(
+        fullName: String,
+        division: String,
+        district: String,
+        upazila: String,
+        successToast: String
+    ) {
+        val currentAuth = _authState.value as? AuthUiState.Authenticated ?: return
+        viewModelScope.launch {
+            _authLoading.value = true
+            val result = container.cloudAccountRepository.updateUserProfile(
+                uid = currentAuth.profile.userId,
+                fullName = fullName,
+                division = division,
+                district = district,
+                upazila = upazila
+            )
+            _authLoading.value = false
+            result.onSuccess {
+                _authState.value = AuthUiState.Authenticated(
+                    currentAuth.profile.copy(
+                        fullName = fullName.trim(),
+                        division = division.trim(),
+                        district = district.trim(),
+                        upazila = upazila.trim()
+                    )
+                )
+                _snackbarMessage.value = successToast
+            }.onFailure { err ->
+                _snackbarMessage.value = err.localizedMessage ?: "Failed to update profile."
+            }
+        }
+    }
+
+    fun signOut(activityContext: Context, signedOutToast: String) {
+        viewModelScope.launch {
+            // Detach all active Firestore snapshot listeners BEFORE signing out
+            cancelCloudListeners()
+            activeObservedUid = null
+            migratedForUid = null
+            GoogleAuthHelper.signOutCleanly(activityContext)
+            _authState.value = AuthUiState.Guest
+            _snackbarMessage.value = signedOutToast
+        }
+    }
+
+    private fun mergeLocalAndCloudScans(
+        localScans: List<ScanRecord>,
+        cloudScans: List<CloudScanRecord>
+    ): List<ScanRecord> {
+        val localKeys = localScans.map { CloudAccountRepository.deterministicScanKey(it) }.toSet()
+        val localTimestamps = localScans.map { it.timestamp }.toSet()
+        val merged = localScans.toMutableList()
+
+        cloudScans.forEach { cloud ->
+            val existsLocally = cloud.clientScanKey in localKeys ||
+                cloud.id in localKeys ||
+                localTimestamps.any { kotlin.math.abs(it - cloud.scannedAtMillis) < 1_000L }
+            if (!existsLocally) {
+                val syntheticId = -kotlin.math.abs(cloud.id.hashCode().toLong()).let {
+                    if (it == 0L) 1L else it
+                }
+                syntheticCloudDocIds[syntheticId] = cloud.id.ifBlank { cloud.clientScanKey }
+                val scoreMap = cloud.allScores.entries.associate { (k, v) ->
+                    GuavaLeafClass.fromLabel(k) to v.toFloat()
+                }
+                merged += ScanRecord(
+                    id = syntheticId,
+                    imagePath = cloud.localImagePath.orEmpty(),
+                    predictedClass = GuavaLeafClass.fromLabel(cloud.predictedClass),
+                    decisionScore = cloud.decisionScore.toFloat(),
+                    calibratedConfidence = cloud.calibratedConfidence?.toFloat(),
+                    marginToRunnerUp = cloud.marginToRunnerUp.toFloat(),
+                    allScoresJson = ScanRepository.encodeScoresJson(scoreMap),
+                    inferenceTimeMs = cloud.inferenceTimeMs,
+                    timestamp = cloud.scannedAtMillis,
+                    orchardName = cloud.orchardName,
+                    plotId = cloud.plotId,
+                    notes = cloud.notes,
+                    explanationMethod = cloud.explanationMethod,
+                    isMockResult = cloud.mockResult
+                )
+            }
+        }
+        return merged.sortedByDescending { it.timestamp }
     }
 
     fun verifyAndPreloadModel() {
@@ -336,7 +1012,7 @@ class MainViewModel(
             bitmap = bitmap,
             imagePath = imagePath,
             enforceQualityGate = prefs.strictQualityGate,
-            allowDevMockMode = prefs.devMockModeEnabled,
+            allowDevMockMode = false,
             onStageChanged = { stage ->
                 _scanFlowState.value = ScanFlowState.Processing(stage)
             }
@@ -344,8 +1020,14 @@ class MainViewModel(
 
         when (outcome) {
             is PredictionOutcome.Success -> {
+                val isAuthenticated = _authState.value is AuthUiState.Authenticated
+                if (!isAuthenticated) {
+                    container.preferencesRepository.incrementGuestScanCount()
+                }
+                // Auto-save guest scans (scans 1..3) so they migrate seamlessly to Firestore upon sign-in,
+                // and auto-save authenticated scans when autoSaveScans is enabled.
                 var savedId: Long? = null
-                if (prefs.autoSaveScans) {
+                if (!isAuthenticated || prefs.autoSaveScans) {
                     savedId = persistPrediction(outcome.result, "", "", "")
                 }
                 _scanFlowState.value = ScanFlowState.Ready(
@@ -392,12 +1074,32 @@ class MainViewModel(
                 val savedId = if (current.savedRecordId == null) {
                     persistPrediction(current.prediction, orchardName, plotId, notes)
                 } else {
-                    container.scanRepository.updateScanMetadata(
-                        id = current.savedRecordId,
-                        orchardName = orchardName,
-                        plotId = plotId,
-                        notes = notes
-                    )
+                    if (current.savedRecordId > 0L) {
+                        container.scanRepository.updateScanMetadata(
+                            id = current.savedRecordId,
+                            orchardName = orchardName,
+                            plotId = plotId,
+                            notes = notes
+                        )
+                        syncUpdatedMetadataToCloudIfAuthenticated(
+                            localId = current.savedRecordId,
+                            orchardName = orchardName,
+                            plotId = plotId,
+                            notes = notes
+                        )
+                    } else {
+                        val cloudDocId = syntheticCloudDocIds[current.savedRecordId]
+                        val uid = (_authState.value as? AuthUiState.Authenticated)?.profile?.userId
+                        if (cloudDocId != null && uid != null) {
+                            container.cloudAccountRepository.updateCloudScanMetadata(
+                                uid = uid,
+                                scanDocId = cloudDocId,
+                                orchardName = orchardName,
+                                plotId = plotId,
+                                notes = notes
+                            )
+                        }
+                    }
                     current.savedRecordId
                 }
                 _scanFlowState.value = current.copy(
@@ -433,7 +1135,36 @@ class MainViewModel(
             explanationMethod = prediction.explainability.method.name,
             isMockResult = prediction.isMockResult
         )
-        return container.scanRepository.saveScan(record)
+        val localId = container.scanRepository.saveScan(record)
+        val uid = (_authState.value as? AuthUiState.Authenticated)?.profile?.userId
+        if (uid != null) {
+            val savedRecord = record.copy(id = localId)
+            viewModelScope.launch {
+                container.cloudAccountRepository.uploadScanIfAbsent(uid, savedRecord)
+            }
+        }
+        return localId
+    }
+
+    private suspend fun syncUpdatedMetadataToCloudIfAuthenticated(
+        localId: Long,
+        orchardName: String,
+        plotId: String,
+        notes: String
+    ) {
+        val uid = (_authState.value as? AuthUiState.Authenticated)?.profile?.userId ?: return
+        val localRecord = container.scanRepository.getScanById(localId) ?: return
+        val docId = CloudAccountRepository.deterministicScanKey(localRecord)
+        val updateResult = container.cloudAccountRepository.updateCloudScanMetadata(
+            uid = uid,
+            scanDocId = docId,
+            orchardName = orchardName,
+            plotId = plotId,
+            notes = notes
+        )
+        if (updateResult.isFailure) {
+            container.cloudAccountRepository.uploadScanIfAbsent(uid, localRecord, docId)
+        }
     }
 
     fun reopenSavedScan(record: ScanRecord, onReadyNavigate: () -> Unit) {
@@ -526,13 +1257,36 @@ class MainViewModel(
 
     fun deleteScan(id: Long) {
         viewModelScope.launch {
-            container.scanRepository.deleteScan(id)
+            val uid = (_authState.value as? AuthUiState.Authenticated)?.profile?.userId
+            if (id > 0L) {
+                val existing = container.scanRepository.getScanById(id)
+                container.scanRepository.deleteScan(id)
+                if (uid != null && existing != null) {
+                    val docId = CloudAccountRepository.deterministicScanKey(existing)
+                    container.cloudAccountRepository.deleteCloudScan(uid, docId)
+                }
+            } else {
+                val cloudDocId = syntheticCloudDocIds.remove(id)
+                if (uid != null && cloudDocId != null) {
+                    container.cloudAccountRepository.deleteCloudScan(uid, cloudDocId)
+                }
+            }
             refreshDiagnostics()
         }
     }
 
     fun deleteAllScans() {
         viewModelScope.launch {
+            val uid = (_authState.value as? AuthUiState.Authenticated)?.profile?.userId
+            if (uid != null) {
+                val currentCloud = _cloudScans.value
+                currentCloud.forEach { cloud ->
+                    val docId = cloud.id.ifBlank { cloud.clientScanKey }
+                    if (docId.isNotBlank()) {
+                        container.cloudAccountRepository.deleteCloudScan(uid, docId)
+                    }
+                }
+            }
             container.scanRepository.deleteAllScans()
             refreshDiagnostics()
         }
@@ -749,6 +1503,14 @@ class MainViewModel(
     }
 
     override fun onCleared() {
+        authStateListener?.let { listener ->
+            runCatching {
+                if (container.isFirebaseInitialized()) {
+                    Firebase.auth.removeAuthStateListener(listener)
+                }
+            }
+        }
+        cancelCloudListeners()
         updateCheckJob?.cancel()
         updateDownloadJob?.cancel()
         super.onCleared()

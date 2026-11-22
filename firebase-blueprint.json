@@ -1,0 +1,224 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated Guava Doctor farmer/user profile including full name and Bangladesh administrative location (Division, District, Upazila).",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Authentication UID of the owner."
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Full display name from Google Sign-In or Email/Password registration."
+        },
+        "division": {
+          "type": "string",
+          "description": "Selected Bangladesh division from the cascading dropdown (empty string for direct Google Sign-In until edited)."
+        },
+        "district": {
+          "type": "string",
+          "description": "Selected Bangladesh district from the cascading dropdown (empty string for direct Google Sign-In until edited)."
+        },
+        "upazila": {
+          "type": "string",
+          "description": "Selected Bangladesh upazila from the cascading dropdown (empty string for direct Google Sign-In until edited)."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email address from Google Sign-In or Email/Password authentication."
+        },
+        "authProvider": {
+          "type": "string",
+          "enum": [
+            "google",
+            "password"
+          ],
+          "description": "Original authentication method bound to this email (google or password)."
+        },
+        "photoUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Optional Google account profile photo URL."
+        },
+        "profileCompleted": {
+          "type": "boolean",
+          "description": "Whether the user profile is active and ready for cloud sync."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp (FieldValue.serverTimestamp()) when the profile was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp (FieldValue.serverTimestamp()) when the profile was last updated."
+        }
+      },
+      "required": [
+        "userId",
+        "fullName",
+        "division",
+        "district",
+        "upazila",
+        "email",
+        "profileCompleted",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CloudScanRecord": {
+      "title": "CloudScanRecord",
+      "description": "Synced guava leaf AI scan diagnosis record belonging to an authenticated user, including migrated guest trial scans.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Authentication UID of the scan owner."
+        },
+        "clientScanKey": {
+          "type": "string",
+          "description": "Deterministic client-side key used to prevent duplicate uploads during guest scan migration."
+        },
+        "predictedClass": {
+          "type": "string",
+          "enum": [
+            "Anthracnose",
+            "Healthy",
+            "Nutrient Stress",
+            "Pest Damage",
+            "Sooty Mold"
+          ],
+          "description": "Canonical predicted guava leaf condition class."
+        },
+        "decisionScore": {
+          "type": "number",
+          "description": "Linear SVM decision score for the winning class."
+        },
+        "calibratedConfidence": {
+          "type": "number",
+          "description": "Optional calibrated confidence score in [0, 1]."
+        },
+        "marginToRunnerUp": {
+          "type": "number",
+          "description": "Margin between top-1 and runner-up SVM score."
+        },
+        "allScores": {
+          "type": "object",
+          "description": "Native map of canonical class names to numeric decision scores."
+        },
+        "inferenceTimeMs": {
+          "type": "integer",
+          "description": "Measured on-device inference latency in milliseconds."
+        },
+        "scannedAtMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds when the leaf scan occurred on device."
+        },
+        "orchardName": {
+          "type": "string",
+          "description": "Optional orchard name."
+        },
+        "plotId": {
+          "type": "string",
+          "description": "Optional plot or block identifier."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional field notes."
+        },
+        "explanationMethod": {
+          "type": "string",
+          "description": "Explainability heatmap method name."
+        },
+        "mockResult": {
+          "type": "boolean",
+          "description": "Whether the scan was generated in development mock mode."
+        },
+        "localImagePath": {
+          "type": "string",
+          "description": "Optional local on-device file path reference for the originating device."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp (FieldValue.serverTimestamp()) when synced."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp (FieldValue.serverTimestamp()) when last modified."
+        }
+      },
+      "required": [
+        "userId",
+        "clientScanKey",
+        "predictedClass",
+        "decisionScore",
+        "marginToRunnerUp",
+        "allScores",
+        "inferenceTimeMs",
+        "scannedAtMillis",
+        "orchardName",
+        "plotId",
+        "notes",
+        "explanationMethod",
+        "mockResult",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "EmailLock": {
+      "title": "EmailLock",
+      "description": "Immutable privacy-preserving SHA-256 email uniqueness lock ensuring each email address can only be used once across Google Sign-In and Email/Password.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Authentication UID that owns this email."
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "google",
+            "password"
+          ],
+          "description": "Authentication provider originally bound to this email."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the email was first registered."
+        }
+      },
+      "required": [
+        "userId",
+        "provider",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/email_registry/{emailHash}": {
+      "schema": {
+        "$ref": "#/entities/EmailLock"
+      },
+      "description": "Immutable one-email-one-account locks keyed by SHA-256(lowercase email), isolated to request.auth.token.email."
+    },
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Owner-isolated farmer profile documents keyed by Firebase Auth UID."
+    },
+    "/users/{userId}/scans/{scanId}": {
+      "schema": {
+        "$ref": "#/entities/CloudScanRecord"
+      },
+      "description": "Owner-isolated synced guava leaf diagnosis scan history records."
+    }
+  }
+}

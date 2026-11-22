@@ -91,6 +91,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.guavacare.ai.ai.inference.ModelHealthStatus
 import com.guavacare.ai.core.common.AppStrings
 import com.guavacare.ai.domain.model.AppLanguage
+import com.guavacare.ai.domain.model.GUEST_FREE_SCAN_LIMIT
 import com.guavacare.ai.presentation.ScanFlowState
 import com.guavacare.ai.presentation.components.DevMockModeBanner
 import java.io.File
@@ -115,7 +116,10 @@ fun ScannerScreen(
     modelHealth: ModelHealthStatus? = null,
     isVerifyingModel: Boolean = false,
     isImportingModel: Boolean = false,
-    onImportTfliteModel: (Uri) -> Unit = {}
+    onImportTfliteModel: (Uri) -> Unit = {},
+    isAuthenticated: Boolean = false,
+    remainingGuestScans: Int = GUEST_FREE_SCAN_LIMIT,
+    onOpenLoginForLimit: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -225,6 +229,32 @@ fun ScannerScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                }
+
+                if (!isAuthenticated) {
+                    val isLow = remainingGuestScans <= 1
+                    Surface(
+                        onClick = onOpenLoginForLimit,
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (isLow) {
+                            MaterialTheme.colorScheme.tertiaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                        },
+                        modifier = Modifier.testTag("scanner_guest_quota_badge")
+                    ) {
+                        Text(
+                            text = "${strings.guestFreeScansLeft}: $remainingGuestScans/$GUEST_FREE_SCAN_LIMIT",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isLow) {
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            },
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
                 }
             }
 

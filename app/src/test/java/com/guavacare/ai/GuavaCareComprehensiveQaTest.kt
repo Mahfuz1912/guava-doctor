@@ -619,6 +619,8 @@ class GuavaCareComprehensiveQaTest {
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithText(stringsBn.aboutTitle).assertIsDisplayed()
+        composeRule.onNodeWithTag("about_lazy_column")
+            .performScrollToNode(androidx.compose.ui.test.hasText(stringsBn.aboutOverviewTitle))
         composeRule.onNodeWithText(stringsBn.aboutOverviewTitle).assertIsDisplayed()
 
         composeRule.onNodeWithTag("about_lazy_column")

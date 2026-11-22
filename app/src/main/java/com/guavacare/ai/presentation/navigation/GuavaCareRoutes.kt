@@ -24,6 +24,9 @@ object GuavaCareRoutes {
     const val ROUTE_SETTINGS = "settings"
     const val ROUTE_RESEARCH = "research"
     const val ROUTE_PRIVACY_POLICY = "privacy_policy"
+    const val ROUTE_LOGIN = "login"
+    const val ROUTE_REGISTER = "register"
+    const val ROUTE_PROFILE = "profile"
 }
 
 data class TopLevelDestination(

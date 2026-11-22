@@ -1,0 +1,175 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidLeafClass(val) {
+      return val is string &&
+             val in ['Anthracnose', 'Healthy', 'Nutrient Stress', 'Pest Damage', 'Sooty Mold'];
+    }
+
+    function isValidEmailHash(hash) {
+      return hash is string && hash.size() == 64 && hash.matches('^[0-9a-f]{64}$');
+    }
+
+    function isOwnEmailHash(emailHash) {
+      return isSignedIn() &&
+             request.auth.token.email is string &&
+             request.auth.token.email.size() > 0 &&
+             emailHash == hashing.sha256(request.auth.token.email.lower()).toHexString().lower();
+    }
+
+    function isValidEmailLock(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.provider is string && data.provider in ['google', 'password'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 100 &&
+             data.division is string && data.division.size() <= 80 &&
+             data.district is string && data.district.size() <= 80 &&
+             data.upazila is string && data.upazila.size() <= 80 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.profileCompleted is bool &&
+             (!('authProvider' in data) || (data.authProvider is string && data.authProvider in ['google', 'password'])) &&
+             (!('photoUrl' in data) || data.photoUrl == null || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidScanRecord(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.clientScanKey is string && data.clientScanKey.size() >= 1 && data.clientScanKey.size() <= 128 &&
+             isValidLeafClass(data.predictedClass) &&
+             data.decisionScore is number &&
+             (!('calibratedConfidence' in data) || data.calibratedConfidence == null ||
+               (data.calibratedConfidence is number && data.calibratedConfidence >= 0 && data.calibratedConfidence <= 1)) &&
+             data.marginToRunnerUp is number &&
+             data.allScores is map && data.allScores.size() <= 10 &&
+             data.inferenceTimeMs is int && data.inferenceTimeMs >= 0 && data.inferenceTimeMs <= 600000 &&
+             data.scannedAtMillis is int && data.scannedAtMillis > 0 &&
+             data.orchardName is string && data.orchardName.size() <= 120 &&
+             data.plotId is string && data.plotId.size() <= 80 &&
+             data.notes is string && data.notes.size() <= 1000 &&
+             data.explanationMethod is string && data.explanationMethod.size() <= 80 &&
+             data.mockResult is bool &&
+             (!('localImagePath' in data) || data.localImagePath == null ||
+               (data.localImagePath is string && data.localImagePath.size() <= 500)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // One-email-one-account immutable lock keyed by SHA-256(lowercase email).
+    // Strictly isolated to the authenticated user's own token email (zero enumeration / zero PII exposure).
+    match /email_registry/{emailHash} {
+      allow get: if isValidEmailHash(emailHash) && isOwnEmailHash(emailHash);
+      allow list: if false;
+      allow create: if isValidEmailHash(emailHash) &&
+                       isOwnEmailHash(emailHash) &&
+                       incoming().keys().hasAll(['userId', 'provider', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'provider', 'createdAt']) &&
+                       isValidEmailLock(incoming());
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isOwner(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'fullName', 'division', 'district', 'upazila',
+                         'email', 'profileCompleted', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'fullName', 'division', 'district', 'upazila',
+                         'email', 'authProvider', 'photoUrl', 'profileCompleted', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       isOwner(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'fullName', 'division', 'district', 'upazila',
+                         'email', 'authProvider', 'photoUrl', 'profileCompleted', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && isOwner(userId);
+
+      match /scans/{scanId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(scanId) && isOwner(userId);
+        allow list: if isOwner(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(scanId) &&
+                         isOwner(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'clientScanKey', 'predictedClass', 'decisionScore',
+                           'marginToRunnerUp', 'allScores', 'inferenceTimeMs', 'scannedAtMillis',
+                           'orchardName', 'plotId', 'notes', 'explanationMethod',
+                           'mockResult', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'clientScanKey', 'predictedClass', 'decisionScore',
+                           'calibratedConfidence', 'marginToRunnerUp', 'allScores',
+                           'inferenceTimeMs', 'scannedAtMillis', 'orchardName', 'plotId',
+                           'notes', 'explanationMethod', 'mockResult', 'localImagePath',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidScanRecord(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(scanId) &&
+                         isValidScanRecord(incoming()) &&
+                         isOwner(userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().clientScanKey == existing().clientScanKey &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'orchardName', 'plotId', 'notes', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(scanId) && isOwner(userId);
+      }
+    }
+  }
+}

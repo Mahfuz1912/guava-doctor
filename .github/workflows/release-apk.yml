@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v2.0)'
+        description: 'Release tag (e.g. v2.1)'
         required: true
-        default: 'v2.0'
+        default: 'v2.1'
 
       release_notes:
         description: 'Optional release notes (Bangla / English)'
@@ -167,7 +167,7 @@ jobs:
           name: Guava Doctor ${{ steps.artifact.outputs.tag }}
 
           body: |
-            ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_notes != '' && github.event.inputs.release_notes || 'Guava Doctor v2.0 — Improved guava leaf detection, updated orchard insights, and in-app auto-update support.' }}
+            ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_notes != '' && github.event.inputs.release_notes || 'Guava Doctor v2.1 — Google & Email/Password login, cloud-synced history, Profile & Forgot Password, redesigned About & Insights pages, and updated Privacy Policy.' }}
 
             Version: ${{ steps.artifact.outputs.tag }}
             versionCode: ${{ steps.artifact.outputs.version_code }}

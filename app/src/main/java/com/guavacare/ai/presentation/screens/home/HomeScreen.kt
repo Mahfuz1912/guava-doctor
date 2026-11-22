@@ -32,7 +32,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
@@ -65,6 +68,8 @@ import com.example.R
 import com.guavacare.ai.ai.inference.ModelHealthStatus
 import com.guavacare.ai.core.common.AppStrings
 import com.guavacare.ai.domain.model.AppLanguage
+import com.guavacare.ai.domain.model.AuthUiState
+import com.guavacare.ai.domain.model.GUEST_FREE_SCAN_LIMIT
 import com.guavacare.ai.domain.model.OrchardInsightsSummary
 import com.guavacare.ai.domain.model.OrchardTip
 import com.guavacare.ai.domain.model.ScanRecord
@@ -90,7 +95,12 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     modelHealth: ModelHealthStatus? = null,
     isVerifyingModel: Boolean = false,
-    onRefreshModelStatus: () -> Unit = {}
+    onRefreshModelStatus: () -> Unit = {},
+    authState: AuthUiState = AuthUiState.Guest,
+    remainingGuestScans: Int = GUEST_FREE_SCAN_LIMIT,
+    onOpenLogin: () -> Unit = {},
+    onOpenRegister: () -> Unit = {},
+    onOpenProfile: () -> Unit = {}
 ) {
     Box(
         modifier = modifier.fillMaxSize(),
@@ -143,22 +153,60 @@ fun HomeScreen(
                         }
                     }
 
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = onOpenSettings,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .testTag("open_settings_button")
+                        if (authState is AuthUiState.Authenticated) {
+                            Surface(
+                                onClick = onOpenProfile,
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .testTag("home_profile_button")
+                            ) {
+                                val photoUrl = authState.profile.photoUrl
+                                if (!photoUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = photoUrl,
+                                        contentDescription = strings.profileTitle,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(CircleShape)
+                                    )
+                                } else {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Person,
+                                            contentDescription = strings.profileTitle,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Settings,
-                                contentDescription = strings.settings,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            IconButton(
+                                onClick = onOpenSettings,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .testTag("open_settings_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Settings,
+                                    contentDescription = strings.settings,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -168,6 +216,17 @@ fun HomeScreen(
                 item {
                     DevMockModeBanner(text = strings.devMockBanner)
                 }
+            }
+
+            // Account / Guest 3-Scan Quota Strip
+            item {
+                HomeAccountQuotaStrip(
+                    strings = strings,
+                    authState = authState,
+                    remainingGuestScans = remainingGuestScans,
+                    onOpenLogin = onOpenLogin,
+                    onOpenProfile = onOpenProfile
+                )
             }
 
             // Editorial Botanical Hero Banner
@@ -497,6 +556,155 @@ private fun PulsingQuickScanButton(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+@Composable
+private fun HomeAccountQuotaStrip(
+    strings: AppStrings,
+    authState: AuthUiState,
+    remainingGuestScans: Int,
+    onOpenLogin: () -> Unit,
+    onOpenProfile: () -> Unit
+) {
+    when (authState) {
+        is AuthUiState.Authenticated -> {
+            Surface(
+                onClick = onOpenProfile,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("home_authenticated_banner"),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = authState.profile.fullName,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CloudDone,
+                            contentDescription = strings.cloudBackedUpLabel,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Text(
+                            text = strings.viewProfileAction,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = strings.profileTitle,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        else -> {
+            val isExhausted = remainingGuestScans <= 0
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("home_guest_quota_banner"),
+                shape = RoundedCornerShape(16.dp),
+                color = if (isExhausted) {
+                    MaterialTheme.colorScheme.tertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainer
+                },
+                border = BorderStroke(
+                    0.8.dp,
+                    if (isExhausted) {
+                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.45f)
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant
+                    }
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isExhausted) Icons.Filled.Lock else Icons.Filled.Eco,
+                            contentDescription = null,
+                            tint = if (isExhausted) {
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = if (isExhausted) {
+                                strings.guestFreeScansExhausted
+                            } else {
+                                "${strings.guestFreeScansLeft}: $remainingGuestScans/$GUEST_FREE_SCAN_LIMIT"
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isExhausted) {
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    TextButton(
+                        onClick = onOpenLogin,
+                        modifier = Modifier.testTag("home_auth_cta_button")
+                    ) {
+                        Text(
+                            text = strings.guestQuotaHomeCta,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         }
     }
 }

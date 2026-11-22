@@ -20,12 +20,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.OfflineBolt
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +64,9 @@ import com.guavacare.ai.core.common.AppStrings
 import com.guavacare.ai.core.constants.ModelConstants
 import com.guavacare.ai.domain.model.AppLanguage
 import com.guavacare.ai.domain.model.AppUpdateState
+import com.guavacare.ai.domain.model.AuthUiState
+import com.guavacare.ai.domain.model.CloudSyncStatus
+import com.guavacare.ai.domain.model.GUEST_FREE_SCAN_LIMIT
 import com.guavacare.ai.domain.model.GuavaLeafClass
 import com.guavacare.ai.domain.model.ThemeMode
 import com.guavacare.ai.domain.model.UserPreferences
@@ -89,7 +98,16 @@ fun SettingsScreen(
     onImportTfliteModel: (Uri) -> Unit = {},
     onRemoveImportedTflite: () -> Unit = {},
     updateState: AppUpdateState = AppUpdateState.Idle,
-    onCheckForUpdates: () -> Unit = {}
+    onCheckForUpdates: () -> Unit = {},
+    authState: AuthUiState = AuthUiState.Guest,
+    remainingGuestScans: Int = GUEST_FREE_SCAN_LIMIT,
+    cloudSyncStatus: CloudSyncStatus = CloudSyncStatus.IDLE,
+    isAuthLoading: Boolean = false,
+    onOpenLogin: () -> Unit = {},
+    onOpenRegister: () -> Unit = {},
+    onUpdateProfile: (fullName: String, division: String, district: String, upazila: String) -> Unit = { _, _, _, _ -> },
+    onSignOut: () -> Unit = {},
+    onOpenProfile: () -> Unit = {}
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
 
@@ -125,6 +143,23 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+            }
+
+            // Grower Account & Cloud Sync
+            item {
+                AccountSettingsCard(
+                    strings = strings,
+                    language = preferences.language,
+                    authState = authState,
+                    remainingGuestScans = remainingGuestScans,
+                    cloudSyncStatus = cloudSyncStatus,
+                    isUpdatingProfile = isAuthLoading,
+                    onOpenLogin = onOpenLogin,
+                    onOpenRegister = onOpenRegister,
+                    onUpdateProfile = onUpdateProfile,
+                    onSignOut = onSignOut,
+                    onOpenProfile = onOpenProfile
+                )
             }
 
             // Language & Theme
@@ -189,17 +224,10 @@ fun SettingsScreen(
                     )
                     SettingsSwitchRow(
                         title = strings.autoSaveLabel,
-                        subtitle = null,
+                        subtitle = strings.autoSaveSub,
                         checked = preferences.autoSaveScans,
                         onCheckedChange = onAutoSaveToggle,
                         testTag = "settings_auto_save_switch"
-                    )
-                    SettingsSwitchRow(
-                        title = strings.devMockModeLabel,
-                        subtitle = strings.devMockModeSub,
-                        checked = preferences.devMockModeEnabled,
-                        onCheckedChange = onDevMockModeToggle,
-                        testTag = "settings_dev_mock_switch"
                     )
                 }
             }
@@ -427,21 +455,59 @@ fun PrivacyPolicyScreen(
             }
 
             val sections = listOf(
-                strings.privacyPolicyOfflineTitle to strings.privacyPolicyOfflineBody,
-                strings.privacyPolicyPermissionsTitle to strings.privacyPolicyPermissionsBody,
-                strings.privacyPolicyStorageTitle to strings.privacyPolicyStorageBody,
-                strings.privacyPolicyNoTrackingTitle to strings.privacyPolicyNoTrackingBody,
-                strings.privacyPolicyDisclaimerTitle to strings.privacyPolicyDisclaimerBody
+                Triple(Icons.Filled.OfflineBolt, strings.privacyPolicyOfflineTitle, strings.privacyPolicyOfflineBody),
+                Triple(Icons.Filled.CloudDone, strings.privacyPolicyAccountTitle, strings.privacyPolicyAccountBody),
+                Triple(Icons.Filled.CameraAlt, strings.privacyPolicyPermissionsTitle, strings.privacyPolicyPermissionsBody),
+                Triple(Icons.Filled.DeleteSweep, strings.privacyPolicyStorageTitle, strings.privacyPolicyStorageBody),
+                Triple(Icons.Filled.VerifiedUser, strings.privacyPolicyNoTrackingTitle, strings.privacyPolicyNoTrackingBody),
+                Triple(Icons.Filled.Info, strings.privacyPolicyDisclaimerTitle, strings.privacyPolicyDisclaimerBody)
             )
 
-            sections.forEach { (title, body) ->
+            sections.forEach { (icon, title, body) ->
                 item {
-                    SettingsGroupCard(title = title) {
-                        Text(
-                            text = body,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(34.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Text(
+                                text = body,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

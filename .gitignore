@@ -19,3 +19,5 @@ debug.keystore
 *.jks
 *.keystore
 release_assets/
+*-debug.log
+

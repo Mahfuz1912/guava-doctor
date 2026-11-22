@@ -1,0 +1,280 @@
+package com.guavacare.ai.data.remote
+
+import android.content.Context
+import android.util.Log
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import com.example.R
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.firebase.Firebase
+import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.auth.auth
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+
+sealed interface GoogleSignInOutcome {
+    data class Success(val user: FirebaseUser) : GoogleSignInOutcome
+    data object Cancelled : GoogleSignInOutcome
+    data class Failure(
+        val message: String,
+        val isEmailCollision: Boolean = false
+    ) : GoogleSignInOutcome
+}
+
+sealed interface PasswordResetOutcome {
+    data object Success : PasswordResetOutcome
+    data class Failure(val message: String) : PasswordResetOutcome
+}
+
+object GoogleAuthHelper {
+
+    private const val TAG = "Auth"
+
+    /**
+     * Explicit interactive Google Sign-In button flow via Jetpack Credential Manager.
+     * Uses GetSignInWithGoogleOption with R.string.default_web_client_id (never hardcoded).
+     */
+    suspend fun signInWithGoogleButton(context: Context): GoogleSignInOutcome {
+        return try {
+            val webClientId = context.getString(R.string.default_web_client_id)
+            if (webClientId.isBlank()) {
+                return GoogleSignInOutcome.Failure(
+                    "Google Sign-In configuration is missing (default_web_client_id)."
+                )
+            }
+            val credentialManager = CredentialManager.create(context)
+            val option = GetSignInWithGoogleOption.Builder(serverClientId = webClientId).build()
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(option)
+                .build()
+            val response = credentialManager.getCredential(context = context, request = request)
+            exchangeGoogleCredential(response.credential)
+        } catch (e: GetCredentialCancellationException) {
+            Log.w(TAG, "User cancelled Google Sign-In", e)
+            GoogleSignInOutcome.Cancelled
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (e: GetCredentialException) {
+            Log.e(TAG, "Credential Manager error during Google Sign-In", e)
+            GoogleSignInOutcome.Failure(
+                e.errorMessage?.toString()?.takeIf { it.isNotBlank() }
+                    ?: "Google Sign-In could not be completed. Please try again."
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error during Google Sign-In", e)
+            GoogleSignInOutcome.Failure(mapFirebaseAuthError(e))
+        }
+    }
+
+    /**
+     * Email & Password sign-in using Firebase Authentication (enabled by project owner in Firebase Console).
+     */
+    suspend fun signInWithEmailPassword(
+        email: String,
+        password: String
+    ): GoogleSignInOutcome {
+        return try {
+            val authResult = Firebase.auth
+                .signInWithEmailAndPassword(email.trim(), password)
+                .await()
+            val user = authResult.user
+            if (user != null) {
+                GoogleSignInOutcome.Success(user)
+            } else {
+                GoogleSignInOutcome.Failure("Unable to retrieve signed-in account.")
+            }
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (e: Exception) {
+            Log.e(TAG, "Email/Password sign-in failed", e)
+            GoogleSignInOutcome.Failure(mapFirebaseAuthError(e))
+        }
+    }
+
+    /**
+     * Email & Password account creation with displayName update.
+     */
+    suspend fun registerWithEmailPassword(
+        email: String,
+        password: String,
+        fullName: String
+    ): GoogleSignInOutcome {
+        return try {
+            val authResult = Firebase.auth
+                .createUserWithEmailAndPassword(email.trim(), password)
+                .await()
+            val user = authResult.user
+            if (user != null) {
+                val cleanName = fullName.trim()
+                if (cleanName.isNotBlank()) {
+                    runCatching {
+                        val profileUpdate = UserProfileChangeRequest.Builder()
+                            .setDisplayName(cleanName)
+                            .build()
+                        user.updateProfile(profileUpdate).await()
+                    }
+                }
+                GoogleSignInOutcome.Success(user)
+            } else {
+                GoogleSignInOutcome.Failure("Account creation did not return a user.")
+            }
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (e: FirebaseAuthUserCollisionException) {
+            Log.w(TAG, "Email/Password registration blocked: email already in use", e)
+            GoogleSignInOutcome.Failure(
+                message = mapFirebaseAuthError(e),
+                isEmailCollision = true
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Email/Password registration failed", e)
+            GoogleSignInOutcome.Failure(mapFirebaseAuthError(e))
+        }
+    }
+
+    /**
+     * Sends a password reset email via Firebase Authentication.
+     */
+    suspend fun sendPasswordResetEmail(email: String): PasswordResetOutcome {
+        return try {
+            val cleanEmail = email.trim()
+            if (cleanEmail.isEmpty()) {
+                return PasswordResetOutcome.Failure("Please enter your email address.")
+            }
+            Firebase.auth.sendPasswordResetEmail(cleanEmail).await()
+            PasswordResetOutcome.Success
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (e: Exception) {
+            Log.e(TAG, "Password reset email failed", e)
+            PasswordResetOutcome.Failure(mapFirebaseAuthError(e))
+        }
+    }
+
+    /**
+     * Optional silent returning-user sign-in check using GetGoogleIdOption in its own request.
+     */
+    suspend fun attemptSilentAutoSignIn(context: Context): GoogleSignInOutcome {
+        return try {
+            val webClientId = context.getString(R.string.default_web_client_id)
+            if (webClientId.isBlank()) return GoogleSignInOutcome.Cancelled
+            val credentialManager = CredentialManager.create(context)
+            val option = GetGoogleIdOption.Builder()
+                .setServerClientId(webClientId)
+                .setFilterByAuthorizedAccounts(true)
+                .setAutoSelectEnabled(true)
+                .build()
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(option)
+                .build()
+            val response = credentialManager.getCredential(context = context, request = request)
+            exchangeGoogleCredential(response.credential)
+        } catch (e: GetCredentialCancellationException) {
+            Log.w(TAG, "Silent auto sign-in cancelled", e)
+            GoogleSignInOutcome.Cancelled
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (e: Exception) {
+            Log.d(TAG, "No authorized Google account available for silent sign-in: ${e.message}")
+            GoogleSignInOutcome.Cancelled
+        }
+    }
+
+    private suspend fun exchangeGoogleCredential(
+        credential: androidx.credentials.Credential
+    ): GoogleSignInOutcome {
+        if (credential is CustomCredential &&
+            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+        ) {
+            val googleCred = GoogleIdTokenCredential.createFrom(credential.data)
+            val firebaseCred = GoogleAuthProvider.getCredential(googleCred.idToken, null)
+            val authResult = Firebase.auth.signInWithCredential(firebaseCred).await()
+            val user = authResult.user
+            return if (user != null) {
+                GoogleSignInOutcome.Success(user)
+            } else {
+                GoogleSignInOutcome.Failure("Unable to retrieve authenticated Google account.")
+            }
+        }
+        return GoogleSignInOutcome.Failure("Unsupported credential type returned by Google Sign-In.")
+    }
+
+    private fun mapFirebaseAuthError(e: Exception): String = when (e) {
+        is FirebaseAuthWeakPasswordException ->
+            "Password is too weak. Please use at least 6 characters."
+        is FirebaseAuthInvalidCredentialsException ->
+            "Invalid email or password. Please check and try again."
+        is FirebaseAuthInvalidUserException ->
+            "No account found with this email. Please register first."
+        is FirebaseAuthUserCollisionException ->
+            "This email is already registered. Each email can only be used once — please sign in with your original method."
+        is FirebaseNetworkException ->
+            "Network error. Please check your internet connection and try again."
+        else ->
+            e.localizedMessage ?: "Authentication failed. Please try again."
+    }
+
+    /**
+     * Deletes a newly created duplicate Firebase Auth user (if applicable) and signs out cleanly.
+     */
+    suspend fun rollbackDuplicateAccountAndSignOut(
+        context: Context?,
+        user: FirebaseUser,
+        deleteIfNewlyCreated: Boolean
+    ) {
+        withContext(NonCancellable) {
+            if (deleteIfNewlyCreated) {
+                val created = user.metadata?.creationTimestamp ?: 0L
+                val lastSignIn = user.metadata?.lastSignInTimestamp ?: 0L
+                val isBrandNew = created > 0L && kotlin.math.abs(lastSignIn - created) < 10_000L
+                if (isBrandNew) {
+                    runCatching { user.delete().await() }
+                        .onFailure { err -> Log.w(TAG, "Unable to delete duplicate auth user", err) }
+                }
+            }
+            if (context != null) {
+                runCatching {
+                    CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
+                }.onFailure { err ->
+                    Log.w(TAG, "Failed to clear credential state during rollback", err)
+                }
+            }
+            runCatching { Firebase.auth.signOut() }
+                .onFailure { err -> Log.w(TAG, "Failed to sign out during rollback", err) }
+        }
+    }
+
+    /**
+     * Sign-out must clear Credential Manager state inside NonCancellable before Firebase.auth.signOut().
+     * Caller should cancel active Firestore snapshot listeners BEFORE invoking this.
+     */
+    suspend fun signOutCleanly(context: Context) {
+        withContext(NonCancellable) {
+            runCatching {
+                CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
+            }.onFailure { err ->
+                Log.w(TAG, "Failed to clear credential state on sign-out", err)
+            }
+            runCatching {
+                Firebase.auth.signOut()
+            }.onFailure { err ->
+                Log.w(TAG, "Failed to sign out from Firebase Auth", err)
+            }
+        }
+    }
+}

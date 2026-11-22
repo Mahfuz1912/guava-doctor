@@ -28,7 +28,8 @@ data class UserPreferences(
     val themeMode: ThemeMode = ThemeMode.LIGHT,
     val strictQualityGate: Boolean = true,
     val showLeafGuide: Boolean = true,
-    val autoSaveScans: Boolean = false,
+    val autoSaveScans: Boolean = true,
     val devMockModeEnabled: Boolean = false,
-    val updateFeedUrl: String = UpdateConstants.DEFAULT_UPDATE_FEED_URL
+    val updateFeedUrl: String = UpdateConstants.DEFAULT_UPDATE_FEED_URL,
+    val guestScanCount: Int = 0
 )

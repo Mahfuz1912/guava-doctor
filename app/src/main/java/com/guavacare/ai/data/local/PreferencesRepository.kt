@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.guavacare.ai.core.constants.UpdateConstants
@@ -28,6 +29,7 @@ class PreferencesRepository(private val context: Context) {
         val AUTO_SAVE_SCANS = booleanPreferencesKey("auto_save_scans")
         val DEV_MOCK_MODE = booleanPreferencesKey("dev_mock_mode")
         val UPDATE_FEED_URL = stringPreferencesKey("update_feed_url")
+        val GUEST_SCAN_COUNT = intPreferencesKey("guest_scan_count")
     }
 
     val preferencesFlow: Flow<UserPreferences> = context.guavaCareDataStore.data.map { prefs ->
@@ -37,9 +39,10 @@ class PreferencesRepository(private val context: Context) {
             themeMode = ThemeMode.fromKey(prefs[Keys.THEME_MODE]),
             strictQualityGate = prefs[Keys.STRICT_QUALITY_GATE] ?: true,
             showLeafGuide = prefs[Keys.SHOW_LEAF_GUIDE] ?: true,
-            autoSaveScans = prefs[Keys.AUTO_SAVE_SCANS] ?: false,
-            devMockModeEnabled = prefs[Keys.DEV_MOCK_MODE] ?: false,
-            updateFeedUrl = rawUrl.ifBlank { UpdateConstants.DEFAULT_UPDATE_FEED_URL }
+            autoSaveScans = prefs[Keys.AUTO_SAVE_SCANS] ?: true,
+            devMockModeEnabled = false,
+            updateFeedUrl = rawUrl.ifBlank { UpdateConstants.DEFAULT_UPDATE_FEED_URL },
+            guestScanCount = (prefs[Keys.GUEST_SCAN_COUNT] ?: 0).coerceAtLeast(0)
         )
     }
 
@@ -70,5 +73,19 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setUpdateFeedUrl(url: String) {
         val clean = url.trim().ifBlank { UpdateConstants.DEFAULT_UPDATE_FEED_URL }
         context.guavaCareDataStore.edit { it[Keys.UPDATE_FEED_URL] = clean }
+    }
+
+    suspend fun incrementGuestScanCount(): Int {
+        var updated = 0
+        context.guavaCareDataStore.edit { prefs ->
+            val current = (prefs[Keys.GUEST_SCAN_COUNT] ?: 0).coerceAtLeast(0)
+            updated = current + 1
+            prefs[Keys.GUEST_SCAN_COUNT] = updated
+        }
+        return updated
+    }
+
+    suspend fun setGuestScanCount(count: Int) {
+        context.guavaCareDataStore.edit { it[Keys.GUEST_SCAN_COUNT] = count.coerceAtLeast(0) }
     }
 }
