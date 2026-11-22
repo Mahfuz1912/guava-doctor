@@ -1,0 +1,6 @@
+{
+  "name": "Guava Doctor",
+  "description": "Offline-first, explainable guava leaf disease scanner and orchard health assistant using MobileNetV2 TFLite and Linear SVM with bilingual Bangla/English guidance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

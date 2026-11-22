@@ -1,0 +1,98 @@
+name: Build and Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g. v1.0 or v2.0)'
+        required: true
+        default: 'v1.0'
+      release_notes:
+        description: 'Optional release notes (Bangla / English)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Decode keystore (release secrets or fallback debug)
+        id: signing
+        shell: bash
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$SIGNING_KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "${{ github.workspace }}/my-upload-key.jks"
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Release keystore secrets missing; building debug-signed APK using debug.keystore.base64."
+            base64 --decode "${{ github.workspace }}/debug.keystore.base64" > "${{ github.workspace }}/debug.keystore"
+            echo "mode=debug" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run unit tests and build APK
+        shell: bash
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ "${{ steps.signing.outputs.mode }}" = "release" ]; then
+            gradle :app:testDebugUnitTest :app:assembleRelease --no-daemon --console=plain
+          else
+            gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon --console=plain
+          fi
+
+      - name: Prepare APK release artifact
+        id: artifact
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          mkdir -p "${{ github.workspace }}/release_assets"
+          if [ "${{ steps.signing.outputs.mode }}" = "release" ]; then
+            OUT_APK="${{ github.workspace }}/release_assets/guava-doctor-${TAG}.apk"
+            cp "${{ github.workspace }}/app/build/outputs/apk/release/app-release.apk" "$OUT_APK"
+          else
+            OUT_APK="${{ github.workspace }}/release_assets/guava-doctor-${TAG}-debug.apk"
+            cp "${{ github.workspace }}/app/build/outputs/apk/debug/app-debug.apk" "$OUT_APK"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "apk_path=${OUT_APK}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.artifact.outputs.tag }}
+          name: Guava Doctor ${{ steps.artifact.outputs.tag }}
+          body: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_notes != '' && github.event.inputs.release_notes || 'Guava Doctor Android release APK. In-app auto-update ready.' }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: ${{ steps.artifact.outputs.apk_path }}

@@ -1,0 +1,292 @@
+{
+  "version": "1.0.0",
+  "disclaimerEn": "Guava Doctor provides automated visual screening to assist orchard scouting. AI predictions are not a confirmed laboratory or agronomic diagnosis. Always verify before applying chemical treatments and consult your local Upazila Agriculture Officer (DAE) when symptoms spread rapidly.",
+  "disclaimerBn": "Guava Doctor বাগান পর্যবেক্ষণে সহায়তার জন্য স্বয়ংক্রিয় ছবি বিশ্লেষণ প্রদান করে। এআই ফলাফল চূড়ান্ত ল্যাবরেটরি বা কৃষিবিদের রোগ নির্ণয় নয়। যেকোনো রাসায়নিক ব্যবস্থাপনার আগে লক্ষণ যাচাই করুন এবং রোগ দ্রুত ছড়ালে স্থানীয় উপজেলা কৃষি কর্মকর্তার (ডিএই) পরামর্শ নিন।",
+  "tips": [
+    {
+      "id": "tip_sanitation",
+      "titleEn": "Orchard Floor Sanitation",
+      "titleBn": "বাগানের পরিচ্ছন্নতা বজায় রাখুন",
+      "bodyEn": "Collect and safely remove fallen diseased leaves and mummified fruits from under guava trees to reduce fungal spore carryover during humid monsoon periods.",
+      "bodyBn": "বর্ষা ও আর্দ্র সময়ে ছত্রাকের জীবাণু ছড়ানো কমাতে পেয়ারা গাছের নিচে ঝরে পড়া আক্রান্ত পাতা ও শুকনো ফল নিয়মিত সংগ্রহ করে বাগান থেকে সরিয়ে ফেলুন।"
+    },
+    {
+      "id": "tip_canopy",
+      "titleEn": "Light Pruning & Airflow",
+      "titleBn": "হালকা ছাঁটাই ও বাতাস চলাচল",
+      "bodyEn": "Prune overcrowded inner branches after harvest so sunlight and airflow reach the canopy interior, naturally discouraging anthracnose and sooty mold growth.",
+      "bodyBn": "ফল সংগ্রহের পর গাছের ভেতরের ঘন ও অপ্রয়োজনীয় ডালপালা হালকা ছাঁটাই করুন, যাতে রোদ ও বাতাস সহজে প্রবেশ করে এবং অ্যানথ্রাকনোজ ও সুটি মোল্ডের প্রাদুর্ভাব কমে।"
+    },
+    {
+      "id": "tip_soil_test",
+      "titleEn": "Test Soil Before Fertilizing",
+      "titleBn": "সার প্রয়োগের আগে মাটি পরীক্ষা",
+      "bodyEn": "Leaf yellowing can result from multiple causes including drainage issues or micronutrient imbalance. Test orchard soil through SRDI or your local agriculture office before adjusting fertilizer schedules.",
+      "bodyBn": "পাতা হলুদ হওয়ার পেছনে জলাবদ্ধতা বা অণুখাদ্যের ঘাটতিসহ নানা কারণ থাকতে পারে। সার পরিবর্তনের আগে মৃত্তিকা সম্পদ উন্নয়ন ইনস্টিটিউট (SRDI) বা উপজেলা কৃষি অফিসের মাধ্যমে মাটি পরীক্ষা করান।"
+    },
+    {
+      "id": "tip_scouting",
+      "titleEn": "Weekly Leaf Underside Scouting",
+      "titleBn": "সাপ্তাহিক পাতার নিচের অংশ পর্যবেক্ষণ",
+      "bodyEn": "Inspect the undersides of young shoots weekly for aphids, mealybugs, whiteflies, and scale insects. Early monitoring prevents both direct feeding damage and secondary sooty mold.",
+      "bodyBn": "কচি ডগার পাতার নিচের দিক প্রতি সপ্তাহে পরীক্ষা করুন। জাবপোকা, মিলিবাগ, সাদা মাছি বা আঁশপোকা দ্রুত শনাক্ত করলে সরাসরি ক্ষতি ও পরবর্তী সুটি মোল্ড উভয়ই প্রতিরোধ করা সহজ হয়।"
+    }
+  ],
+  "advisories": [
+    {
+      "classKey": "Anthracnose",
+      "nameEn": "Anthracnose",
+      "nameBn": "অ্যানথ্রাকনোজ (ফোস্কা পচা রোগ)",
+      "severityEn": "High Attention",
+      "severityBn": "উচ্চ সতর্কতা",
+      "overviewEn": "Anthracnose is a common fungal disease in Bangladesh guava orchards (frequently associated with Colletotrichum spp.), especially prevalent during warm, humid, and rainy weather. It can affect leaves, young shoots, and developing fruits, reducing yield and market quality if unmanaged.",
+      "overviewBn": "অ্যানথ্রাকনোজ বাংলাদেশের পেয়ারা বাগানে একটি পরিচিত ছত্রাকজনিত রোগ (সাধারণত Colletotrichum গোত্রের ছত্রাক দ্বারা সৃষ্ট), যা উষ্ণ, আর্দ্র ও বৃষ্টির মৌসুমে বেশি দেখা যায়। এটি পাতা, কচি ডগা ও বাড়ন্ত ফলে আক্রমণ করে এবং ব্যবস্থা না নিলে ফলন ও বাজারমান কমিয়ে দেয়।",
+      "symptomsEn": [
+        "Dark brown to blackish irregular or circular necrotic spots on leaf blades and margins.",
+        "Sunken lesions that may merge into larger blighted patches during prolonged wet spells.",
+        "Yellowing halos around older spots and premature leaf drop in severe infections.",
+        "Dieback of tender shoots or dark sunken spots on nearby fruits."
+      ],
+      "symptomsBn": [
+        "পাতার ফলক ও কিনারায় গাঢ় বাদামি থেকে কালচে গোলাকার বা অনিয়মিত দাগ।",
+        "দীর্ঘস্থায়ী আর্দ্র আবহাওয়ায় দাগগুলো একত্র হয়ে পাতার বড় অংশ ঝলসে যাওয়া।",
+        "পুরোনো দাগের চারপাশে হালকা হলুদাভ বলয় এবং তীব্র আক্রমণে অকালে পাতা ঝরে পড়া।",
+        "কচি ডগা আগা থেকে শুকিয়ে যাওয়া এবং আশপাশের ফলে কালো ডেবে যাওয়া দাগ দেখা যাওয়া।"
+      ],
+      "causesEn": [
+        "Fungal spores spreading rapidly through rain splash, morning dew, and wind.",
+        "Dense, unpruned tree canopies that trap moisture for extended hours.",
+        "Infected fallen leaves, pruned twigs, and mummified fruits left on the orchard floor."
+      ],
+      "causesBn": [
+        "বৃষ্টির ছিটা, শিশির ও বাতাসের মাধ্যমে ছত্রাকের স্পোর দ্রুত ছড়িয়ে পড়া।",
+        "অতিরিক্ত ঘন ও অছাঁটাইকৃত গাছের ভেতর দীর্ঘ সময় আর্দ্রতা জমে থাকা।",
+        "বাগানের মাটিতে পড়ে থাকা আক্রান্ত পাতা, শুকনো ডাল ও পচা ফল থেকে নতুন সংক্রমণ।"
+      ],
+      "preventionEn": [
+        "Maintain open canopy structure through periodic post-harvest pruning to improve sunlight and airflow.",
+        "Practice orchard sanitation by collecting and destroying fallen infected leaves and diseased fruits.",
+        "Avoid overhead irrigation late in the day so foliage dries quickly.",
+        "Ensure good orchard drainage to prevent prolonged humidity around lower branches."
+      ],
+      "preventionBn": [
+        "ফল সংগ্রহের পর নিয়মিত ছাঁটাই করে গাছের ভেতর আলো-বাতাস চলাচল নিশ্চিত করুন।",
+        "ঝরে পড়া আক্রান্ত পাতা ও রোগাক্রান্ত ফল সংগ্রহ করে বাগান থেকে দূরে ধ্বংস বা মাটিচাপা দিন।",
+        "বিকেলের দিকে গাছের পাতা ভিজিয়ে সেচ দেওয়া এড়িয়ে চলুন যাতে পাতা দ্রুত শুকিয়ে যায়।",
+        "বাগানে পানি নিষ্কাশনের সুব্যবস্থা রাখুন যাতে নিচের ডালপালায় আর্দ্রতা জমে না থাকে।"
+      ],
+      "managementEn": [
+        "Carefully prune heavily infected twigs with clean, disinfected pruning tools and remove debris from the plot.",
+        "Scout neighboring trees and fruits to assess whether symptoms are isolated or spreading across blocks.",
+        "Consult an agricultural extension officer before selecting any registered fungicide program suited to current crop stage and pre-harvest interval."
+      ],
+      "managementBn": [
+        "জীবাণুমুক্ত কাঁচি দিয়ে তীব্র আক্রান্ত ডগা ও পাতা সাবধানে ছাঁটাই করে বাগানের বাইরে সরিয়ে ফেলুন।",
+        "রোগটি কেবল একটি গাছে সীমাবদ্ধ নাকি পুরো ব্লকে ছড়াচ্ছে তা বুঝতে আশপাশের গাছ ও ফল পরীক্ষা করুন।",
+        "ফসলের বর্তমান ধাপ ও সংগ্রহ-পূর্ব নিরাপদ সময় বিবেচনায় অনুমোদিত ছত্রাকনাশক ব্যবস্থাপনার জন্য কৃষি কর্মকর্তার পরামর্শ নিন।"
+      ],
+      "whenToConsultEn": "Consult your Upazila Agriculture Officer (DAE) or plant pathology specialist immediately if dark spots appear on young fruits, shoot dieback spreads rapidly after rainfall, or more than a few trees in a block show active lesions.",
+      "whenToConsultBn": "কচি ফলে কালো দাগ দেখা দিলে, বৃষ্টির পর ডগা শুকানো দ্রুত বাড়লে বা ব্লকের একাধিক গাছে সক্রিয় দাগ ছড়িয়ে পড়লে দ্রুত উপজেলা কৃষি কর্মকর্তা (ডিএই) বা উদ্ভিদ রোগতত্ত্ববিদের পরামর্শ নিন।"
+    },
+    {
+      "classKey": "Healthy",
+      "nameEn": "Healthy",
+      "nameBn": "সুস্থ পাতা",
+      "severityEn": "Normal Status",
+      "severityBn": "স্বাভাবিক অবস্থা",
+      "overviewEn": "The scanned guava leaf exhibits uniform green coloration, intact leaf margins, and clean surface texture consistent with a healthy, actively photosynthesizing leaf without prominent signs of fungal lesions, sooty coating, pest chewing, or acute nutrient chlorosis.",
+      "overviewBn": "পরীক্ষিত পেয়ারা পাতায় সুষম সবুজ রং, অক্ষত কিনারা এবং পরিষ্কার উপরিভাগ দেখা গেছে, যা সুস্থ ও সক্রিয়ভাবে সালোকসংশ্লেষণকারী পাতার বৈশিষ্ট্য। এতে বড় কোনো ছত্রাকজনিত দাগ, কালো আবরণ, পোকামাকড়ের কামড় বা তীব্র পুষ্টিহীনতার লক্ষণ দৃশ্যমান নয়।",
+      "symptomsEn": [
+        "Consistent deep-to-medium green lamina without necrotic spots or dark fungal rings.",
+        "Smooth, clean upper and lower surfaces free from black sooty residue or sticky honeydew.",
+        "Intact leaf edges without ragged chewing marks, mines, or severe curling."
+      ],
+      "symptomsBn": [
+        "কোনো পচা দাগ বা কালো ছত্রাক বলয় ছাড়াই পাতাজুড়ে সুষম সবুজ রং।",
+        "পাতার ওপর ও নিচের পৃষ্ঠ পরিষ্কার, কালো আবরণ বা আঠালো রসবিহীন।",
+        "ছেঁড়া-ফাটা, পোকামাকড়ের খাওয়া দাগ বা অস্বাভাবিক কুঁকড়ানো ছাড়াই অক্ষত পাতার কিনারা।"
+      ],
+      "causesEn": [
+        "Balanced orchard nutrition, adequate drainage, and good sunlight penetration.",
+        "Effective routine sanitation and proactive scouting."
+      ],
+      "causesBn": [
+        "সুষম সার ব্যবস্থাপনা, পর্যাপ্ত পানি নিষ্কাশন ও ভালো সূর্যালোক প্রাপ্তি।",
+        "নিয়মিত বাগান পরিচ্ছন্নতা ও সময়মতো পর্যবেক্ষণ।"
+      ],
+      "preventionEn": [
+        "Continue weekly visual scouting across multiple canopy zones (upper, middle, lower branches).",
+        "Keep weeds around the tree basin managed and maintain proper mulching during dry seasons.",
+        "Follow balanced soil-test-based nutrition and seasonal light pruning."
+      ],
+      "preventionBn": [
+        "গাছের ওপর, মাঝারি ও নিচের অংশ থেকে প্রতি সপ্তাহে নিয়মিত পাতা পর্যবেক্ষণ চালিয়ে যান।",
+        "গাছের গোড়ার আগাছা পরিষ্কার রাখুন এবং শুষ্ক মৌসুমে উপযুক্ত মালচিং ব্যবহার করুন।",
+        "মাটি পরীক্ষার ভিত্তিতে সুষম সার এবং মৌসুমি হালকা ছাঁটাই অব্যাহত রাখুন।"
+      ],
+      "managementEn": [
+        "No corrective disease intervention is indicated from this single leaf image.",
+        "Remember that a single healthy leaf does not guarantee the entire tree is symptom-free—sample multiple leaves if you notice stress elsewhere in the orchard."
+      ],
+      "managementBn": [
+        "এই একক পাতার ছবির ভিত্তিতে কোনো রোগ প্রতিরোধমূলক চিকিৎসার প্রয়োজন দেখা যাচ্ছে না।",
+        "মনে রাখবেন একটি সুস্থ পাতা পুরো গাছ রোগমুক্ত হওয়ার নিশ্চয়তা দেয় না—বাগানের অন্য অংশে অস্বাভাবিকতা দেখলে আরও কয়েকটি পাতা পরীক্ষা করুন।"
+      ],
+      "whenToConsultEn": "Reach out to local agricultural extension services for seasonal fertilizer scheduling, soil testing, or routine pre-monsoon orchard preparation advice.",
+      "whenToConsultBn": "মৌসুমি সার পরিকল্পনা, মাটি পরীক্ষা বা বর্ষা-পূর্ব নিয়মিত বাগান পরিচর্যার পরামর্শের জন্য স্থানীয় কৃষি সম্প্রসারণ সেবার সঙ্গে যোগাযোগ করতে পারেন।"
+    },
+    {
+      "classKey": "Nutrient Stress",
+      "nameEn": "Nutrient Stress",
+      "nameBn": "পুষ্টির ঘাটতি / পুষ্টিজনিত চাপ",
+      "severityEn": "Moderate Attention",
+      "severityBn": "মাঝারি সতর্কতা",
+      "overviewEn": "Nutrient stress in guava manifests through characteristic leaf discoloration, interveinal chlorosis, marginal scorching, or stunted new foliage. Visual symptoms alone cannot uniquely identify a single deficient element because soil pH, root health, and waterlogging can mimic deficiency signs.",
+      "overviewBn": "পেয়ারা গাছে পুষ্টির ঘাটতি বা পুষ্টিজনিত চাপ সাধারণত পাতার বিবর্ণতা, শিরার মধ্যবর্তী হলুদ ভাব, কিনারা পুড়ে যাওয়া বা নতুন পাতা ছোট হয়ে যাওয়ার মাধ্যমে প্রকাশ পায়। কেবল পাতার রং দেখে নির্দিষ্ট একটি উপাদানের ঘাটতি নিশ্চিত করা যায় না, কারণ মাটির অম্লত্ব-ক্ষারত্ব (pH), শিকড়ের সমস্যা বা জলাবদ্ধতাতেও একই লক্ষণ দেখা দিতে পারে।",
+      "symptomsEn": [
+        "Uniform yellowing (chlorosis) of older leaves or pale interveinal yellowing on younger leaves.",
+        "Reddish, bronzed, or scorched leaf margins and tips.",
+        "Reduced leaf size, dull foliage appearance, or poor shoot vigor."
+      ],
+      "symptomsBn": [
+        "পুরোনো পাতা সমানভাবে হলুদ হয়ে যাওয়া অথবা কচি পাতার শিরার মাঝখানে ফ্যাকাশে হলুদ ভাব।",
+        "পাতার কিনারা ও ডগা লালচে, তামাটে বা পুড়ে যাওয়ার মতো শুকিয়ে যাওয়া।",
+        "পাতার আকার ছোট হয়ে যাওয়া, নিষ্প্রভ ভাব বা ডগার বৃদ্ধি কমে যাওয়া।"
+      ],
+      "causesEn": [
+        "Imbalanced macronutrient or micronutrient availability (such as nitrogen, potassium, magnesium, zinc, or iron).",
+        "Unfavorable soil pH restricting nutrient uptake even when nutrients exist in soil.",
+        "Poor drainage, root compaction, drought stress, or root-knot nematode damage impairing absorption."
+      ],
+      "causesBn": [
+        "মুখ্য বা গৌণ পুষ্টি উপাদানের (যেমন নাইট্রোজেন, পটাশিয়াম, ম্যাগনেসিয়াম, জিঙ্ক বা আয়রন) ভারসাম্যহীনতা।",
+        "মাটির অনুপযুক্ত pH যার ফলে মাটিতে পুষ্টি থাকা সত্ত্বেও গাছ তা গ্রহণ করতে পারে না।",
+        "জলাবদ্ধতা, শক্ত মাটি, খরার চাপ বা শিকড়ের ক্ষতির কারণে পুষ্টি শোষণ ব্যাহত হওয়া।"
+      ],
+      "preventionEn": [
+        "Conduct periodic soil testing through SRDI (Soil Resource Development Institute) before setting annual fertilizer plans.",
+        "Incorporate well-decomposed organic compost around the drip line to improve soil structure and microbial activity.",
+        "Maintain consistent irrigation and clear drainage channels during monsoon rains."
+      ],
+      "preventionBn": [
+        "বার্ষিক সার পরিকল্পনা তৈরির আগে মৃত্তিকা সম্পদ উন্নয়ন ইনস্টিটিউটের (SRDI) মাধ্যমে নিয়মিত মাটি পরীক্ষা করুন।",
+        "মাটির গঠন ও পুষ্টি ধারণক্ষমতা বাড়াতে গাছের ছায়া-সীমানা বরাবর পচা জৈব সার প্রয়োগ করুন।",
+        "সুষম সেচ এবং বর্ষায় বাগানের পানি নিষ্কাশন নালা পরিষ্কার রাখুন।"
+      ],
+      "managementEn": [
+        "Do not guess or apply arbitrary fertilizer dosages based solely on visual AI screening—over-fertilization can worsen root burn and nutrient lock-up.",
+        "Inspect soil moisture, drainage, and root health alongside leaf symptoms.",
+        "Share soil test results and orchard history with your Upazila Agriculture Officer to receive a balanced, site-specific nutrient plan."
+      ],
+      "managementBn": [
+        "শুধু এআই ছবির ফলাফলের ওপর ভিত্তি করে অনুমাননির্ভর মাত্রায় সার প্রয়োগ করবেন না—অতিরিক্ত সার শিকড়ের ক্ষতি ও পুষ্টি ভারসাম্যহীনতা বাড়াতে পারে।",
+        "পাতার লক্ষণের পাশাপাশি মাটির আর্দ্রতা, নিষ্কাশন ও শিকড়ের অবস্থা পরীক্ষা করুন।",
+        "মাটি পরীক্ষার প্রতিবেদন ও বাগানের তথ্য নিয়ে উপজেলা কৃষি কর্মকর্তার কাছ থেকে বাগান-উপযোগী সুষম সার পরামর্শ গ্রহণ করুন।"
+      ],
+      "whenToConsultEn": "Consult an agronomist or SRDI soil specialist whenever yellowing affects multiple orchard blocks, fails to improve with proper drainage, or coincides with poor flowering and fruit set.",
+      "whenToConsultBn": "একাধিক ব্লকে পাতা হলুদ হলে, পানি নিষ্কাশন ঠিক করার পরও উন্নতি না হলে বা ফুল-ফল ধারণ কমে গেলে কৃষিবিদ বা SRDI মৃত্তিকা বিশেষজ্ঞের পরামর্শ নিন।"
+    },
+    {
+      "classKey": "Pest Damage",
+      "nameEn": "Pest Damage",
+      "nameBn": "পোকামাকড়ের আক্রমণ",
+      "severityEn": "Moderate to High",
+      "severityBn": "মাঝারি থেকে উচ্চ",
+      "overviewEn": "Guava foliage is targeted by both chewing insects (caterpillars, beetles, leaf rollers) and piercing-sucking pests (aphids, thrips, mites, scale, mealybugs). Physical feeding wounds reduce photosynthetic area and can serve as entry points for secondary pathogens.",
+      "overviewBn": "পেয়ারা পাতায় চিবানো পোকা (শুঁয়োপোকা, বিটল, পাতা মোড়ানো পোকা) এবং রস চোষা পোকা (জাবপোকা, থ্রিপস, মাকড়, আঁশপোকা, মিলিবাগ) উভয়ই আক্রমণ করতে পারে। পাতার ক্ষত সালোকসংশ্লেষণ কমিয়ে দেয় এবং পরবর্তী জীবাণু সংক্রমণের পথ তৈরি করে।",
+      "symptomsEn": [
+        "Irregular holes, notched edges, skeletonized patches, or rolled/webbed leaves from chewing pests.",
+        "Stippling, puckering, curling, or distorted tender flush from sucking pests.",
+        "Visible insects, egg clusters, webbing, frass, or ant trails on twigs and leaf undersides."
+      ],
+      "symptomsBn": [
+        "চিবানো পোকার কারণে পাতায় অনিয়মিত ছিদ্র, কাটা কিনারা, জালের মতো খাওয়া অংশ বা মোড়ানো পাতা।",
+        "রস চোষা পোকার আক্রমণে পাতায় সূক্ষ্ম দাগ, কুঁকড়ে যাওয়া বা কচি পাতা বিকৃত হয়ে যাওয়া।",
+        "পাতার নিচে ও ডগায় পোকা, ডিমের গুচ্ছ, মাকড়সার জাল, বিষ্ঠা বা পিঁপড়ার সারি দেখা যাওয়া।"
+      ],
+      "causesEn": [
+        "Seasonal pest population surges during warm flush growth periods.",
+        "Overgrown weeds and alternate host plants harboring insects near orchard borders.",
+        "Disruption of natural beneficial predators (such as ladybird beetles and lacewings) due to unnecessary broad-spectrum sprays."
+      ],
+      "causesBn": [
+        "উষ্ণ আবহাওয়ায় নতুন কচি পাতা বের হওয়ার সময় পোকার বংশবৃদ্ধি বেড়ে যাওয়া।",
+        "বাগানের চারপাশে ঘন আগাছা ও বিকল্প পোষক গাছে পোকার আশ্রয় তৈরি হওয়া।",
+        "অপ্রয়োজনীয় রাসায়নিক স্প্রে করার ফলে উপকারী পরভোজী পোকা (যেমন লেডিবার্ড বিটল) কমে যাওয়া।"
+      ],
+      "preventionEn": [
+        "Adopt Integrated Pest Management (IPM): inspect leaf undersides and new shoots weekly before populations explode.",
+        "Conserve natural enemies by avoiding routine calendar spraying when pest pressure is low.",
+        "Keep orchard margins clean of weeds and remove heavily infested rolled leaves by hand in small plots."
+      ],
+      "preventionBn": [
+        "সমন্বিত বালাই ব্যবস্থাপনা (IPM) অনুসরণ করুন: পোকার সংখ্যা বাড়ার আগেই প্রতি সপ্তাহে কচি ডগা ও পাতার নিচে পর্যবেক্ষণ করুন।",
+        "পোকার চাপ কম থাকলে অযথা নিয়মিত স্প্রে এড়িয়ে উপকারী পোকা সংরক্ষণ করুন।",
+        "বাগানের চারপাশ আগাছামুক্ত রাখুন এবং ছোট বাগানে আক্রান্ত মোড়ানো পাতা হাত দিয়ে সংগ্রহ করে ধ্বংস করুন।"
+      ],
+      "managementEn": [
+        "First confirm the actual pest species physically on the leaf underside or nearby shoots—chewing pests and sucking pests require completely different IPM measures.",
+        "Use mechanical removal, sticky monitoring traps, and orchard hygiene as first-line steps.",
+        "If infestation crosses economic thresholds, consult your local agriculture office for pest-specific registered IPM interventions rather than applying unverified mixtures."
+      ],
+      "managementBn": [
+        "প্রথমে পাতার নিচে বা ডগায় সরাসরি কোন পোকা আক্রমণ করেছে তা নিশ্চিত করুন—চিবানো ও রস চোষা পোকার ব্যবস্থাপনা সম্পূর্ণ ভিন্ন।",
+        "প্রাথমিক পদক্ষেপ হিসেবে হাত দিয়ে অপসারণ, আঠালো ফাঁদ এবং বাগান পরিচ্ছন্নতা ব্যবহার করুন।",
+        "আক্রমণ অর্থনৈতিক ক্ষতির মাত্রা ছাড়ালে অনুমাননির্ভর মিশ্রণ স্প্রে না করে নির্দিষ্ট পোকার জন্য অনুমোদিত IPM ব্যবস্থাপনা জানতে উপজেলা কৃষি অফিসে যোগাযোগ করুন।"
+      ],
+      "whenToConsultEn": "Seek extension guidance if young flushes are severely deformed across many trees, visible pest colonies expand rapidly, or fruit borers/fruit flies are also observed.",
+      "whenToConsultBn": "অনেক গাছে কচি ডগা মারাত্মক বিকৃত হলে, পোকার উপনিবেশ দ্রুত বাড়লে অথবা ফলের মাছি বা ছিদ্রকারী পোকার উপস্থিতি দেখলে দ্রুত কৃষি সম্প্রসারণ কর্মকর্তার পরামর্শ নিন।"
+    },
+    {
+      "classKey": "Sooty Mold",
+      "nameEn": "Sooty Mold",
+      "nameBn": "সুটি মোল্ড (কালো ঝুল রোগ)",
+      "severityEn": "Moderate Attention",
+      "severityBn": "মাঝারি সতর্কতা",
+      "overviewEn": "Sooty mold appears as a dark, velvety, soot-like fungal coating on the upper surface of guava leaves and twigs. Importantly, these superficial fungi usually do not directly invade leaf tissue; instead, they grow on sugary honeydew excreted by sap-sucking insects, blocking sunlight and reducing photosynthesis.",
+      "overviewBn": "সুটি মোল্ড পেয়ারা পাতা ও ডগার ওপর কালো ঝুলের মতো ছত্রাকের আস্তরণ তৈরি করে। গুরুত্বপূর্ণ বিষয় হলো, এই ছত্রাক সাধারণত সরাসরি পাতার ভেতরে প্রবেশ করে না; বরং রস চোষা পোকার নিঃসৃত মিষ্টি আঠালো রসের (হানিডিউ) ওপর জন্মায় এবং সূর্যালোক আটকে দিয়ে পাতার খাদ্য তৈরি ব্যাহত করে।",
+      "symptomsEn": [
+        "Thin to thick black, powdery or papery coating across upper leaf surfaces, stems, and occasionally fruits.",
+        "Sticky glossy sheen (honeydew) on leaves underneath or beside the black coating.",
+        "Presence of ants climbing trunks and sap-sucking insects (mealybugs, scale, aphids, whiteflies) on leaf undersides."
+      ],
+      "symptomsBn": [
+        "পাতার ওপরের পৃষ্ঠ, ডালপালা ও কখনো ফলে পাতলা থেকে ঘন কালো ঝুলের মতো আবরণ।",
+        "কালো আস্তরণের পাশে বা নিচের পাতায় চকচকে আঠালো রস (হানিডিউ) লেগে থাকা।",
+        "গাছের কাণ্ডে পিঁপড়ার চলাচল এবং পাতার নিচে মিলিবাগ, আঁশপোকা, জাবপোকা বা সাদা মাছির উপস্থিতি।"
+      ],
+      "causesEn": [
+        "Honeydew excretion by sap-sucking pests such as scale insects, mealybugs, aphids, and whiteflies.",
+        "Ant colonies tending honeydew-producing insects and protecting them from natural predators.",
+        "Humid, shaded, densely foliated canopies that favor dark superficial fungal growth."
+      ],
+      "causesBn": [
+        "আঁশপোকা, মিলিবাগ, জাবপোকা ও সাদা মাছির মতো রস চোষা পোকার নিঃসৃত মধুরস (হানিডিউ)।",
+        "পিঁপড়া এই পোকাগুলোকে উপকারী শত্রু পোকা থেকে রক্ষা করায় তাদের বংশবৃদ্ধি বেড়ে যাওয়া।",
+        "ঘন ছায়াযুক্ত ও আর্দ্র গাছের ভেতরের অংশে এই ছত্রাকের দ্রুত বিস্তার।"
+      ],
+      "preventionEn": [
+        "Monitor and manage honeydew-producing sucking insects early—stopping honeydew is the primary way to eliminate sooty mold.",
+        "Manage ant pathways on tree trunks and prune overlapping branches to increase airflow and sunlight.",
+        "Maintain orchard hygiene and encourage beneficial insect predators."
+      ],
+      "preventionBn": [
+        "মধুরস নিঃসরণকারী রস চোষা পোকা প্রাথমিক পর্যায়ে দমন করুন—হানিডিউ বন্ধ করাই সুটি মোল্ড দূর করার মূল উপায়।",
+        "গাছের কাণ্ডে পিঁপড়ার চলাচল নিয়ন্ত্রণ করুন এবং আলো-বাতাস বাড়াতে ঘন ডাল ছাঁটাই করুন।",
+        "বাগান পরিষ্কার রাখুন ও উপকারী পরভোজী পোকা সংরক্ষণ করুন।"
+      ],
+      "managementEn": [
+        "Address the underlying sap-sucking insect infestation first; without fresh honeydew, existing sooty mold gradually flakes off with rain and weathering.",
+        "Prune heavily shaded, crusted interior shoots to improve canopy ventilation.",
+        "Consult an agricultural officer for safe, targeted sucking-pest IPM options suitable for your orchard stage."
+      ],
+      "managementBn": [
+        "আগে মূল কারণ অর্থাৎ রস চোষা পোকা নিয়ন্ত্রণ করুন; নতুন আঠালো রস না থাকলে সময়ের সাথে বৃষ্টি ও বাতাসে কালো আস্তরণ ধীরে ধীরে খসে পড়ে।",
+        "অতিরিক্ত ছায়াযুক্ত ও ঘন কালো আবরণে ঢাকা ভেতরের ডগা ছাঁটাই করে বাতাস চলাচল বাড়ান।",
+        "বাগানের বর্তমান অবস্থার উপযোগী নিরাপদ ও লক্ষ্যভিত্তিক IPM ব্যবস্থাপনার জন্য কৃষি কর্মকর্তার পরামর্শ নিন।"
+      ],
+      "whenToConsultEn": "Consult your local agricultural extension officer if black coating covers a large proportion of the canopy, scale or mealybug colonies persist on twigs, or fruit appearance is affected prior to harvest.",
+      "whenToConsultBn": "গাছের পাতার বড় অংশ কালো আবরণে ঢেকে গেলে, ডালে আঁশপোকা বা মিলিবাগের উপনিবেশ দীর্ঘস্থায়ী হলে বা ফল সংগ্রহের আগে ফলের মান নষ্ট হতে শুরু করলে স্থানীয় কৃষি কর্মকর্তার পরামর্শ নিন।"
+    }
+  ]
+}

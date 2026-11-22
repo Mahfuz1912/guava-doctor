@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "status": "READY",
+  "model_version": "mobilenetv2_fp16_linear_svm_ovo_v1",
+  "classes": [
+    "Anthracnose",
+    "Healthy",
+    "Nutrient Stress",
+    "Pest Damage",
+    "Sooty Mold"
+  ],
+  "svm_classes": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "svm_kernel": "linear",
+  "multiclass_strategy": "ovo",
+  "feature_dim": 1280,
+  "input_size": 224,
+  "preprocessing": "mobilenet_v2_minus1_to_1",
+  "sklearn_estimator": "SVC(kernel=linear)",
+  "calibrated_probabilities_available": false
+}
