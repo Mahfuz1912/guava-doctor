@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v1.0 or v2.0)'
+        description: 'Release tag (e.g. v2.0)'
         required: true
-        default: 'v1.0'
+        default: 'v2.0'
 
       release_notes:
         description: 'Optional release notes (Bangla / English)'
@@ -133,10 +133,13 @@ jobs:
             "${GITHUB_WORKSPACE}/app/build/outputs/apk/release/app-release.apk" \
             "$OUT_APK"
 
+          VERSION_CODE=$(grep -E 'versionCode\s*=' "${GITHUB_WORKSPACE}/app/build.gradle.kts" | head -n 1 | grep -oE '[0-9]+')
+
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "apk_path=${OUT_APK}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
 
-          echo "APK prepared: guava-doctor-${TAG}.apk"
+          echo "APK prepared: guava-doctor-${TAG}.apk (versionCode=${VERSION_CODE})"
 
       # 7. Verify APK signature
       - name: Verify APK signature
@@ -164,9 +167,10 @@ jobs:
           name: Guava Doctor ${{ steps.artifact.outputs.tag }}
 
           body: |
-            ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_notes != '' && github.event.inputs.release_notes || 'Guava Doctor Android Release APK.' }}
+            ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_notes != '' && github.event.inputs.release_notes || 'Guava Doctor v2.0 — Improved guava leaf detection, updated orchard insights, and in-app auto-update support.' }}
 
             Version: ${{ steps.artifact.outputs.tag }}
+            versionCode: ${{ steps.artifact.outputs.version_code }}
 
             Signed Android APK with release keystore.
 

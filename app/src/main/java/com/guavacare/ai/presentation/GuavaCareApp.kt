@@ -407,9 +407,7 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                     viewModel.removeImportedTfliteModel(strings.modelRemovedSuccess)
                                 },
                                 updateState = updateState,
-                                onCheckForUpdates = { viewModel.checkForUpdates(isManual = true) },
-                                onSaveUpdateFeedUrl = { url -> viewModel.setUpdateFeedUrl(url, andCheck = true) },
-                                onResetUpdateFeedUrl = { viewModel.resetUpdateFeedUrl(andCheck = true) }
+                                onCheckForUpdates = { viewModel.checkForUpdates(isManual = true) }
                             )
                         }
 

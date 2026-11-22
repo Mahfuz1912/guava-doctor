@@ -38,7 +38,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -90,12 +89,9 @@ fun SettingsScreen(
     onImportTfliteModel: (Uri) -> Unit = {},
     onRemoveImportedTflite: () -> Unit = {},
     updateState: AppUpdateState = AppUpdateState.Idle,
-    onCheckForUpdates: () -> Unit = {},
-    onSaveUpdateFeedUrl: (String) -> Unit = {},
-    onResetUpdateFeedUrl: () -> Unit = {}
+    onCheckForUpdates: () -> Unit = {}
 ) {
     var showClearDialog by remember { mutableStateOf(false) }
-    var feedUrlDraft by remember(preferences.updateFeedUrl) { mutableStateOf(preferences.updateFeedUrl) }
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -229,7 +225,7 @@ fun SettingsScreen(
                 }
             }
 
-            // App Updates & Feed URL
+            // App Updates
             item {
                 SettingsGroupCard(title = strings.appUpdatesSectionTitle) {
                     DiagnosticMonoLine(
@@ -254,69 +250,26 @@ fun SettingsScreen(
                             modifier = Modifier.testTag("settings_update_status_text")
                         )
                     }
-                    OutlinedTextField(
-                        value = feedUrlDraft,
-                        onValueChange = { feedUrlDraft = it },
-                        label = { Text(strings.updateFeedUrlLabel) },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = JetBrainsMonoFamily),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("settings_update_feed_input")
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val isChecking = updateState is AppUpdateState.Checking
-                        FilledTonalButton(
-                            onClick = { onSaveUpdateFeedUrl(feedUrlDraft) },
-                            enabled = !isChecking,
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = 48.dp)
-                                .testTag("settings_save_update_feed_button")
-                        ) {
-                            if (isChecking) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Filled.SystemUpdate,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(strings.saveUpdateFeedUrl)
-                        }
-                        OutlinedButton(
-                            onClick = { onResetUpdateFeedUrl() },
-                            enabled = !isChecking,
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier
-                                .defaultMinSize(minHeight = 48.dp)
-                                .testTag("settings_reset_update_feed_button")
-                        ) {
-                            Text(strings.resetUpdateFeedUrl)
-                        }
-                    }
-                    OutlinedButton(
+                    val isChecking = updateState is AppUpdateState.Checking
+                    FilledTonalButton(
                         onClick = onCheckForUpdates,
-                        enabled = updateState !is AppUpdateState.Checking,
+                        enabled = !isChecking,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 48.dp)
                             .testTag("settings_check_updates_button")
                     ) {
-                        Icon(Icons.Filled.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
+                        if (isChecking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Filled.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(strings.checkForUpdates)
+                        Text(if (isChecking) strings.checkingForUpdates else strings.checkForUpdates)
                     }
                 }
             }

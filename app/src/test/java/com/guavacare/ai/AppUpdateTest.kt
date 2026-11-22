@@ -194,11 +194,13 @@ class AppUpdateTest {
 
     @Test
     fun forceUpdateGateAndUiStatesRenderInEnglishAndBangla() {
+        val nextCode = com.example.BuildConfig.VERSION_CODE + 1
+        val nextName = "$nextCode.0"
         val release = AppReleaseInfo(
-            versionCode = 2,
-            versionName = "2.0",
-            apkUrl = "https://example.com/app-v2.apk",
-            releaseNotesEn = "New v2 diagnosis speed boost.",
+            versionCode = nextCode,
+            versionName = nextName,
+            apkUrl = "https://example.com/app-v$nextName.apk",
+            releaseNotesEn = "New v$nextName diagnosis speed boost.",
             releaseNotesBn = "নতুন সংস্করণ ২.০ তে দ্রুত রোগ নির্ণয় সুবিধা।",
             forceUpdate = true,
             fileSizeBytes = 47_185_920L
@@ -207,7 +209,7 @@ class AppUpdateTest {
         assertFalse(AppUpdateState.UpToDate(1000L).isForceUpdateGateActive())
 
         var downloadClicked = false
-        val fakeApk = File(context.cacheDir, "fake-v2.apk")
+        val fakeApk = File(context.cacheDir, "fake-next.apk")
         val stateHolder = androidx.compose.runtime.mutableStateOf<AppUpdateState>(
             AppUpdateState.UpdateAvailable(release)
         )
@@ -232,7 +234,7 @@ class AppUpdateTest {
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("force_update_screen").assertIsDisplayed()
-        composeRule.onNodeWithText("v2.0 (2)").assertIsDisplayed()
+        composeRule.onNodeWithText("v$nextName ($nextCode)").assertIsDisplayed()
         composeRule.onNodeWithText("নতুন সংস্করণ ২.০ তে দ্রুত রোগ নির্ণয় সুবিধা।")
             .performScrollTo()
             .assertIsDisplayed()
