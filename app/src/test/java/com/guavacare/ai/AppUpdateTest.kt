@@ -276,6 +276,7 @@ class AppUpdateTest {
     @Test
     fun aboutScreenDisplaysCheckUpdatesButtonAndUpToDateStatus() {
         var checkTriggered = false
+        var shareCount = 0
         val strings = BilingualStrings.get(AppLanguage.ENGLISH)
 
         composeRule.setContent {
@@ -287,13 +288,22 @@ class AppUpdateTest {
                     onOpenResearchInfo = {},
                     onOpenSettings = {},
                     updateState = AppUpdateState.UpToDate(System.currentTimeMillis()),
-                    onCheckForUpdates = { checkTriggered = true }
+                    onCheckForUpdates = { checkTriggered = true },
+                    onShareApp = { shareCount++ }
                 )
             }
         }
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("about_header_share_button").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, shareCount)
+
         composeRule.onNodeWithTag("about_lazy_column")
             .performScrollToNode(androidx.compose.ui.test.hasTestTag("about_check_updates_button"))
+        composeRule.onNodeWithTag("about_share_app_button").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertEquals(2, shareCount)
+
         composeRule.onNodeWithTag("about_update_status_text").assertIsDisplayed()
         composeRule.onNodeWithTag("about_check_updates_button").performClick()
         composeRule.waitForIdle()

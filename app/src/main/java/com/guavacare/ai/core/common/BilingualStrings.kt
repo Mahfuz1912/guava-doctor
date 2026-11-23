@@ -296,6 +296,10 @@ interface AppStrings {
     val aboutResearchSubtitle: String
     val aboutSettingsSubtitle: String
     val aboutUpdatesSubtitle: String
+    val aboutShareAppTitle: String
+    val aboutShareAppSubtitle: String
+    val aboutShareChooserTitle: String
+    val aboutShareMessageBody: String
     // Enhanced Insights page copy
     val insightsSubtitle: String
     val insightsHealthRateLabel: String

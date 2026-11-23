@@ -5,11 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,9 +25,13 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.example.BuildConfig
 import com.guavacare.ai.core.common.AppStrings
+import com.guavacare.ai.core.constants.UpdateConstants
 import com.guavacare.ai.domain.model.AdvisoryArticle
 import com.guavacare.ai.domain.model.AppLanguage
 import com.guavacare.ai.domain.model.AppUpdateState
@@ -59,12 +67,34 @@ fun AboutScreen(
     modifier: Modifier = Modifier,
     updateState: AppUpdateState = AppUpdateState.Idle,
     onCheckForUpdates: () -> Unit = {},
-    advisories: List<AdvisoryArticle> = emptyList()
+    advisories: List<AdvisoryArticle> = emptyList(),
+    onShareApp: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val isDark = LocalIsDarkTheme.current
     var expandedClass by remember { mutableStateOf<GuavaLeafClass?>(null) }
     val advisoryByClass = remember(advisories) { advisories.associateBy { it.leafClass } }
+
+    val triggerShareApp: () -> Unit = {
+        if (onShareApp != null) {
+            onShareApp()
+        } else {
+            val shareText = String.format(
+                strings.aboutShareMessageBody,
+                BuildConfig.VERSION_NAME,
+                UpdateConstants.APP_SHARE_DOWNLOAD_URL
+            )
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, strings.aboutShareChooserTitle)
+                putExtra(Intent.EXTRA_TEXT, shareText)
+            }
+            val chooser = Intent.createChooser(sendIntent, strings.aboutShareChooserTitle).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runCatching { context.startActivity(chooser) }
+        }
+    }
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -78,20 +108,45 @@ fun AboutScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header
+            // Header with quick Share App action
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = strings.aboutTitle,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = strings.aboutSubtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = strings.aboutTitle,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = strings.aboutSubtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    FilledTonalIconButton(
+                        onClick = triggerShareApp,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                            .testTag("about_header_share_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = strings.aboutShareAppTitle,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -300,6 +355,19 @@ fun AboutScreen(
 
                     val isChecking = updateState is AppUpdateState.Checking
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        AboutActionRow(
+                            icon = Icons.Filled.Share,
+                            title = strings.aboutShareAppTitle,
+                            subtitle = strings.aboutShareAppSubtitle,
+                            onClick = triggerShareApp,
+                            testTagName = "about_share_app_button",
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            iconContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
+                        )
+                        HorizontalDivider(
+                            thickness = 0.6.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                        )
                         AboutActionRow(
                             icon = Icons.Filled.SystemUpdate,
                             title = if (isChecking) strings.checkingForUpdates else strings.checkForUpdates,
