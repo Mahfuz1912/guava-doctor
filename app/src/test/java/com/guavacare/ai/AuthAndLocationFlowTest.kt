@@ -26,14 +26,18 @@ import com.guavacare.ai.domain.model.GUEST_FREE_SCAN_LIMIT
 import com.guavacare.ai.domain.model.OrchardInsightsSummary
 import com.guavacare.ai.domain.model.ThemeMode
 import com.guavacare.ai.domain.model.UserProfile
+import com.guavacare.ai.presentation.navigation.GuavaCareRoutes
+import com.guavacare.ai.presentation.navigation.visibleTopLevelDestinations
 import com.guavacare.ai.presentation.screens.auth.LoginScreen
 import com.guavacare.ai.presentation.screens.auth.RegisterScreen
+import com.guavacare.ai.presentation.screens.home.HomeScreen
 import com.guavacare.ai.presentation.screens.profile.ProfileScreen
 import com.guavacare.ai.presentation.screens.settings.AccountSettingsCard
 import com.guavacare.ai.presentation.theme.GuavaCareTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -182,7 +186,6 @@ class AuthAndLocationFlowTest {
     fun registerScreenCollectsEmailPasswordAndCascadingDivisionDistrictUpazilaDropdowns() {
         val strings = BilingualStrings.get(AppLanguage.ENGLISH)
         var submitted: List<String>? = null
-        var googleClicked = false
 
         composeRule.setContent {
             GuavaCareTheme(themeMode = ThemeMode.LIGHT, language = AppLanguage.ENGLISH) {
@@ -194,7 +197,6 @@ class AuthAndLocationFlowTest {
                     onSubmitEmailRegistration = { name, email, password, division, district, upazila ->
                         submitted = listOf(name, email, password, division, district, upazila)
                     },
-                    onGoogleSignInClick = { googleClicked = true },
                     onNavigateToLogin = {},
                     onToggleLanguage = {},
                     onBack = {}
@@ -238,12 +240,8 @@ class AuthAndLocationFlowTest {
             submitted
         )
 
-        // Verify direct Google Sign-In shortcut also exists on RegisterScreen
-        composeRule.onNodeWithTag("register_google_button")
-            .performScrollTo()
-            .performClick()
-        composeRule.waitForIdle()
-        assertTrue(googleClicked)
+        // Verify Google Sign-In button is not shown on RegisterScreen
+        composeRule.onNodeWithTag("register_google_button").assertDoesNotExist()
     }
 
     @Test
@@ -261,7 +259,6 @@ class AuthAndLocationFlowTest {
                     onSubmitEmailRegistration = { name, email, password, division, district, upazila ->
                         submitted = listOf(name, email, password, division, district, upazila)
                     },
-                    onGoogleSignInClick = {},
                     onNavigateToLogin = {},
                     onToggleLanguage = {},
                     onBack = {}
@@ -476,5 +473,81 @@ class AuthAndLocationFlowTest {
             listOf("Md. Rahim Mia", "Barishal", "Pirojpur", "Pirojpur Sadar"),
             updated
         )
+    }
+
+    @Test
+    fun historyAndInsightsTabsShowOnlyWhenAuthenticated() {
+        val guestTabs = visibleTopLevelDestinations(isAuthenticated = false)
+        assertEquals(3, guestTabs.size)
+        assertFalse(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_HISTORY })
+        assertFalse(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_INSIGHTS })
+        assertTrue(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_HOME })
+        assertTrue(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_SCANNER })
+        assertTrue(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_ABOUT })
+
+        val signedInTabs = visibleTopLevelDestinations(isAuthenticated = true)
+        assertEquals(5, signedInTabs.size)
+        assertTrue(signedInTabs.any { it.route == GuavaCareRoutes.ROUTE_HISTORY })
+        assertTrue(signedInTabs.any { it.route == GuavaCareRoutes.ROUTE_INSIGHTS })
+    }
+
+    @Test
+    fun homeScreenShowsUnlockPromptForGuestAndInsightsSummaryWhenAuthenticated() {
+        val strings = BilingualStrings.get(AppLanguage.ENGLISH)
+        val profile = UserProfile(
+            id = "uid-789",
+            userId = "uid-789",
+            fullName = "Nusrat Jahan",
+            division = "Dhaka",
+            district = "Gazipur",
+            upazila = "Sreepur",
+            email = "nusrat@example.com",
+            profileCompleted = true
+        )
+        var loginClicked = false
+        var insightsClicked = false
+        val authState = androidx.compose.runtime.mutableStateOf<AuthUiState>(AuthUiState.Guest)
+
+        composeRule.setContent {
+            GuavaCareTheme(themeMode = ThemeMode.LIGHT, language = AppLanguage.ENGLISH) {
+                HomeScreen(
+                    strings = strings,
+                    language = AppLanguage.ENGLISH,
+                    devMockModeEnabled = false,
+                    scans = emptyList(),
+                    insights = OrchardInsightsSummary(totalScans = 4, healthyCount = 3, affectedCount = 1),
+                    tips = emptyList(),
+                    onQuickScanClick = {},
+                    onGalleryUploadClick = {},
+                    onOpenScan = {},
+                    onViewAllHistory = {},
+                    onOpenSettings = {},
+                    onToggleLanguage = {},
+                    authState = authState.value,
+                    onOpenLogin = { loginClicked = true },
+                    onOpenInsights = { insightsClicked = true }
+                )
+            }
+        }
+
+        // Guest: History & Insights summary hidden; unlock prompt shown
+        composeRule.onNodeWithTag("home_hero_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("home_orchard_summary_card").assertDoesNotExist()
+        composeRule.onNodeWithTag("home_lazy_column")
+            .performScrollToNode(hasTestTag("home_login_unlock_card"))
+        composeRule.onNodeWithTag("home_login_unlock_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("home_unlock_sign_in_button").performClick()
+        composeRule.waitForIdle()
+        assertTrue(loginClicked)
+
+        // Authenticated: Orchard Insights summary & shortcut shown; unlock card hidden
+        authState.value = AuthUiState.Authenticated(profile)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("home_login_unlock_card").assertDoesNotExist()
+        composeRule.onNodeWithTag("home_lazy_column")
+            .performScrollToNode(hasTestTag("home_orchard_summary_card"))
+        composeRule.onNodeWithTag("home_orchard_summary_card").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertTrue(insightsClicked)
     }
 }

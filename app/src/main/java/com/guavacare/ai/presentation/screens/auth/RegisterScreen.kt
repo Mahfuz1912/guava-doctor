@@ -77,7 +77,6 @@ fun RegisterScreen(
         district: String,
         upazila: String
     ) -> Unit,
-    onGoogleSignInClick: () -> Unit,
     onNavigateToLogin: () -> Unit,
     onToggleLanguage: () -> Unit,
     onBack: () -> Unit,
@@ -494,16 +493,6 @@ fun RegisterScreen(
                             )
                         }
                     }
-
-                    // OR Divider + Direct Google Sign-In Option (No Register Info Needed)
-                    AuthOrDivider(label = strings.orDividerLabel)
-
-                    GoogleBrandedSignInButton(
-                        label = strings.continueWithGoogle,
-                        isLoading = isLoading,
-                        onClick = onGoogleSignInClick,
-                        testTag = "register_google_button"
-                    )
 
                     Text(
                         text = strings.oneEmailRuleNote,

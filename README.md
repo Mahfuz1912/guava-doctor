@@ -11,7 +11,7 @@
 ## Free Deployment & In-App Updates (GitHub Releases)
 1. Push this repository to `https://github.com/Mahfuz1912/guava-doctor`.
 2. Add repository secrets (`SIGNING_KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_PASSWORD`) in **Settings → Secrets and variables → Actions** for signed release APKs.
-3. Bump `versionCode` and `versionName` in `app/build.gradle.kts` (currently `2` / `"2.0"`), then push a tag such as `git tag v2.0 && git push origin v2.0`.
+3. Bump `versionCode` and `versionName` in `app/build.gradle.kts` (currently `4` / `"2.2"`), then push a tag such as `git tag v2.2 && git push origin v2.2`.
 4. GitHub Actions runs tests and publishes the APK under **Releases**, which the built-in Force Update system detects automatically.
 
 ## Developer

@@ -8,6 +8,7 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import com.example.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -50,7 +51,7 @@ object GoogleAuthHelper {
      */
     suspend fun signInWithGoogleButton(context: Context): GoogleSignInOutcome {
         return try {
-            val webClientId = resolveDefaultWebClientId(context)
+            val webClientId = context.getString(R.string.default_web_client_id).trim()
             if (webClientId.isBlank()) {
                 return GoogleSignInOutcome.Failure(
                     "Google Sign-In configuration is missing (default_web_client_id). Please ensure google-services.json includes OAuth web client configuration."
@@ -170,7 +171,7 @@ object GoogleAuthHelper {
      */
     suspend fun attemptSilentAutoSignIn(context: Context): GoogleSignInOutcome {
         return try {
-            val webClientId = resolveDefaultWebClientId(context)
+            val webClientId = context.getString(R.string.default_web_client_id).trim()
             if (webClientId.isBlank()) return GoogleSignInOutcome.Cancelled
             val credentialManager = CredentialManager.create(context)
             val option = GetGoogleIdOption.Builder()
@@ -274,34 +275,6 @@ object GoogleAuthHelper {
             }.onFailure { err ->
                 Log.w(TAG, "Failed to sign out from Firebase Auth", err)
             }
-        }
-    }
-
-    /**
-     * Dynamically resolves the Google Services generated `default_web_client_id` string resource
-     * so builds succeed cleanly even when google-services.json is absent in CI, while reading the
-     * real generated OAuth Web Client ID at runtime when google-services.json is bundled.
-     */
-    @Suppress("DiscouragedApi")
-    private fun resolveDefaultWebClientId(context: Context): String {
-        val primaryId = context.resources.getIdentifier(
-            "default_web_client_id",
-            "string",
-            context.packageName
-        )
-        val resId = if (primaryId != 0) {
-            primaryId
-        } else {
-            context.resources.getIdentifier(
-                "default_web_client_id",
-                "string",
-                "com.example"
-            )
-        }
-        return if (resId != 0) {
-            runCatching { context.getString(resId).trim() }.getOrDefault("")
-        } else {
-            ""
         }
     }
 }

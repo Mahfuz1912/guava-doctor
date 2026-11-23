@@ -183,6 +183,8 @@ interface AppStrings {
     val saveUpdateFeedUrl: String
     val resetUpdateFeedUrl: String
     val updateSizeLabel: String
+    val updateReadyBadge: String
+    val updateVerifiedApkLabel: String
     // Auth, Guest 3-Scan Quota & Cascading Location Dropdowns
     val guestFreeScansLeft: String
     val guestFreeScansExhausted: String
@@ -308,6 +310,24 @@ interface AppStrings {
     val insightsOrchardBreakdownTitle: String
     val insightsAvgConfidenceLabel: String
     val insightsScanNowAction: String
+    // Modern Home & Auth-Gated History/Insights copy
+    val homeGreetingPrefix: String
+    val homeHeroAiBadge: String
+    val homeQuickScanSubtitle: String
+    val homeGallerySubtitle: String
+    val homeInsightsTileSubtitle: String
+    val homeSignInTileTitle: String
+    val homeSignInTileSubtitle: String
+    val homeUnlockHistoryTitle: String
+    val homeUnlockHistoryBody: String
+    val homeFieldTipsTitle: String
+    val homeHealthToolsTitle: String
+    val homeDiseaseGuideTitle: String
+    val homeDiseaseGuideSubtitle: String
+    val loginRequiredHistoryTitle: String
+    val loginRequiredHistoryBody: String
+    val loginRequiredInsightsTitle: String
+    val loginRequiredInsightsBody: String
 }
 
 object BilingualStrings {

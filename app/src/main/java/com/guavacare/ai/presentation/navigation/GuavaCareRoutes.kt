@@ -74,3 +74,15 @@ val topLevelDestinations = listOf(
         testTag = "nav_about"
     )
 )
+
+/**
+ * History and Insights tabs are visible only when the user is signed in.
+ */
+fun visibleTopLevelDestinations(isAuthenticated: Boolean): List<TopLevelDestination> =
+    if (isAuthenticated) {
+        topLevelDestinations
+    } else {
+        topLevelDestinations.filterNot {
+            it.route == GuavaCareRoutes.ROUTE_HISTORY || it.route == GuavaCareRoutes.ROUTE_INSIGHTS
+        }
+    }

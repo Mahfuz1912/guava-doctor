@@ -299,4 +299,55 @@ class AppUpdateTest {
         composeRule.waitForIdle()
         assertTrue(checkTriggered)
     }
+
+    @Test
+    fun releaseNotesFormatterStripsNoiseAndSplitsBilingualSections() {
+        val rawGitHubBody = """
+            ### English
+            - Modern Home Page: Redesigned card-based layout with Health Tools.
+            - Google Sign-In Fix: Resolved OAuth web client issue.
+
+            ### বাংলা
+            - আধুনিক হোম পেজ: নতুন কার্ড-ভিত্তিক ডিজাইন যুক্ত হয়েছে।
+            - Google সাইন-ইন সমাধান: লগিন ত্রুটি দূর করা হয়েছে।
+
+            Version: v2.2
+            versionCode: 4
+
+            Signed Android APK with release keystore.
+
+            **Full Changelog**:
+            https://github.com/Mahfuz1912/guava-doctor/compare/v2.1...v2.2
+        """.trimIndent()
+
+        val (enSection, bnSection) = com.guavacare.ai.domain.model.ReleaseNotesFormatter.splitBilingualBody(rawGitHubBody)
+        assertTrue(enSection.contains("Modern Home Page"))
+        assertFalse(enSection.contains("versionCode"))
+        assertTrue(bnSection.contains("আধুনিক হোম পেজ"))
+
+        val enHighlights = com.guavacare.ai.domain.model.ReleaseNotesFormatter.parseHighlights(enSection)
+        assertEquals(2, enHighlights.size)
+        assertEquals("Modern Home Page", enHighlights[0].title)
+        assertEquals("Redesigned card-based layout with Health Tools.", enHighlights[0].detail)
+
+        val bnHighlights = com.guavacare.ai.domain.model.ReleaseNotesFormatter.parseHighlights(bnSection)
+        assertEquals(2, bnHighlights.size)
+        assertEquals("আধুনিক হোম পেজ", bnHighlights[0].title)
+
+        // Legacy single-line summary with boilerplate should expand cleanly and drop noise
+        val legacyBody = """
+            Guava Doctor v2.1 — Google & Email/Password login, cloud-synced history, Profile & Forgot Password, and updated Privacy Policy.
+
+            Version: v2.1
+            versionCode: 3
+
+            Signed Android APK with release keystore.
+
+            **Full Changelog**:
+            https://github.com/Mahfuz1912/guava-doctor/compare/v2.0...v2.1
+        """.trimIndent()
+        val legacyHighlights = com.guavacare.ai.domain.model.ReleaseNotesFormatter.parseHighlights(legacyBody)
+        assertEquals(4, legacyHighlights.size)
+        assertTrue(legacyHighlights.none { it.title.contains("Full Changelog") || it.title.contains("versionCode") || it.title.contains("https://") })
+    }
 }

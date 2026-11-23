@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -45,11 +48,13 @@ import com.guavacare.ai.domain.model.AuthUiState
 import com.guavacare.ai.domain.model.isForceUpdateGateActive
 import com.guavacare.ai.presentation.navigation.GuavaCareRoutes
 import com.guavacare.ai.presentation.navigation.topLevelDestinations
+import com.guavacare.ai.presentation.navigation.visibleTopLevelDestinations
 import com.guavacare.ai.presentation.screens.about.AboutScreen
 import com.guavacare.ai.presentation.screens.auth.LoginScreen
 import com.guavacare.ai.presentation.screens.auth.RegisterScreen
 import com.guavacare.ai.presentation.screens.diagnosis.DiagnosisScreen
 import com.guavacare.ai.presentation.screens.history.HistoryScreen
+import com.guavacare.ai.presentation.screens.home.AuthRequiredFeatureGate
 import com.guavacare.ai.presentation.screens.home.HomeScreen
 import com.guavacare.ai.presentation.screens.insights.InsightsScreen
 import com.guavacare.ai.presentation.screens.profile.ProfileScreen
@@ -120,6 +125,7 @@ fun GuavaCareApp(viewModel: MainViewModel) {
     }
 
     fun openLogin(reason: AuthGateReason = AuthGateReason.OPTIONAL) {
+        viewModel.clearAuthError()
         viewModel.setAuthGateReason(reason)
         navController.navigate(GuavaCareRoutes.ROUTE_LOGIN) {
             launchSingleTop = true
@@ -146,6 +152,25 @@ fun GuavaCareApp(viewModel: MainViewModel) {
             openLogin(AuthGateReason.SCAN_LIMIT_REACHED)
         } else {
             onAllowed()
+        }
+    }
+
+    val isAuthenticated = authState is AuthUiState.Authenticated
+    val navDestinations = remember(isAuthenticated) {
+        visibleTopLevelDestinations(isAuthenticated)
+    }
+
+    // Redirect away from auth-only tabs (History / Insights) if user signs out
+    LaunchedEffect(isAuthenticated, currentRoute) {
+        if (!isAuthenticated &&
+            (currentRoute == GuavaCareRoutes.ROUTE_HISTORY || currentRoute == GuavaCareRoutes.ROUTE_INSIGHTS)
+        ) {
+            navController.navigate(GuavaCareRoutes.ROUTE_HOME) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    inclusive = false
+                }
+                launchSingleTop = true
+            }
         }
     }
 
@@ -195,7 +220,7 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                                 tonalElevation = 0.dp
                             ) {
-                                topLevelDestinations.forEach { dest ->
+                                navDestinations.forEach { dest ->
                                     val selected = currentRoute == dest.route
                                     NavigationBarItem(
                                         selected = selected,
@@ -240,7 +265,7 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                             modifier = Modifier.fillMaxHeight(),
                             containerColor = MaterialTheme.colorScheme.surfaceContainer
                         ) {
-                            topLevelDestinations.forEach { dest ->
+                            navDestinations.forEach { dest ->
                                 val selected = currentRoute == dest.route
                                 NavigationRailItem(
                                     selected = selected,
@@ -318,7 +343,9 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                 remainingGuestScans = remainingGuestScans,
                                 onOpenLogin = { openLogin(AuthGateReason.OPTIONAL) },
                                 onOpenRegister = { openRegister() },
-                                onOpenProfile = { openProfile() }
+                                onOpenProfile = { openProfile() },
+                                onOpenInsights = { navigateTopLevel(GuavaCareRoutes.ROUTE_INSIGHTS) },
+                                onOpenAbout = { navigateTopLevel(GuavaCareRoutes.ROUTE_ABOUT) }
                             )
                         }
 
@@ -401,42 +428,68 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                         }
 
                         composable(GuavaCareRoutes.ROUTE_HISTORY) {
-                            HistoryScreen(
-                                strings = strings,
-                                language = prefs.language,
-                                records = filteredHistory,
-                                totalSavedCount = allScans.size,
-                                filterState = historyFilter,
-                                onSearchChange = { viewModel.updateSearchQuery(it) },
-                                onClassFilterChange = { viewModel.updateClassFilter(it) },
-                                onDateFilterChange = { viewModel.updateDateFilter(it) },
-                                onReopenDiagnosis = { record ->
-                                    viewModel.reopenSavedScan(record) {
-                                        navController.navigate(GuavaCareRoutes.ROUTE_DIAGNOSIS)
-                                    }
-                                },
-                                onDeleteRecord = { viewModel.deleteScan(it) },
-                                onDeleteAll = { viewModel.deleteAllScans() },
-                                onStartScan = { navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER) },
-                                onClearFilters = { viewModel.clearHistoryFilters() }
-                            )
+                            if (isAuthenticated) {
+                                HistoryScreen(
+                                    strings = strings,
+                                    language = prefs.language,
+                                    records = filteredHistory,
+                                    totalSavedCount = allScans.size,
+                                    filterState = historyFilter,
+                                    onSearchChange = { viewModel.updateSearchQuery(it) },
+                                    onClassFilterChange = { viewModel.updateClassFilter(it) },
+                                    onDateFilterChange = { viewModel.updateDateFilter(it) },
+                                    onReopenDiagnosis = { record ->
+                                        viewModel.reopenSavedScan(record) {
+                                            navController.navigate(GuavaCareRoutes.ROUTE_DIAGNOSIS)
+                                        }
+                                    },
+                                    onDeleteRecord = { viewModel.deleteScan(it) },
+                                    onDeleteAll = { viewModel.deleteAllScans() },
+                                    onStartScan = { navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER) },
+                                    onClearFilters = { viewModel.clearHistoryFilters() }
+                                )
+                            } else {
+                                AuthRequiredFeatureGate(
+                                    icon = Icons.Filled.History,
+                                    title = strings.loginRequiredHistoryTitle,
+                                    body = strings.loginRequiredHistoryBody,
+                                    signInLabel = strings.signInAction,
+                                    createAccountLabel = strings.createAccountAction,
+                                    onOpenLogin = { openLogin(AuthGateReason.OPTIONAL) },
+                                    onOpenRegister = { openRegister() },
+                                    testTag = "history_login_gate"
+                                )
+                            }
                         }
 
                         composable(GuavaCareRoutes.ROUTE_INSIGHTS) {
-                            InsightsScreen(
-                                strings = strings,
-                                language = prefs.language,
-                                insights = insights,
-                                scans = allScans,
-                                onStartScan = { navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER) },
-                                onOpenHistoryWithClass = { leafClass ->
-                                    viewModel.clearHistoryFilters()
-                                    if (leafClass != null) {
-                                        viewModel.updateClassFilter(leafClass)
+                            if (isAuthenticated) {
+                                InsightsScreen(
+                                    strings = strings,
+                                    language = prefs.language,
+                                    insights = insights,
+                                    scans = allScans,
+                                    onStartScan = { navigateTopLevel(GuavaCareRoutes.ROUTE_SCANNER) },
+                                    onOpenHistoryWithClass = { leafClass ->
+                                        viewModel.clearHistoryFilters()
+                                        if (leafClass != null) {
+                                            viewModel.updateClassFilter(leafClass)
+                                        }
+                                        navigateTopLevel(GuavaCareRoutes.ROUTE_HISTORY)
                                     }
-                                    navigateTopLevel(GuavaCareRoutes.ROUTE_HISTORY)
-                                }
-                            )
+                                )
+                            } else {
+                                AuthRequiredFeatureGate(
+                                    icon = Icons.Filled.Insights,
+                                    title = strings.loginRequiredInsightsTitle,
+                                    body = strings.loginRequiredInsightsBody,
+                                    signInLabel = strings.signInAction,
+                                    createAccountLabel = strings.createAccountAction,
+                                    onOpenLogin = { openLogin(AuthGateReason.OPTIONAL) },
+                                    onOpenRegister = { openRegister() },
+                                    testTag = "insights_login_gate"
+                                )
+                            }
                         }
 
                         composable(GuavaCareRoutes.ROUTE_ABOUT) {
@@ -612,15 +665,6 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                         upazila = upazila,
                                         successToast = strings.accountCreatedAndSyncedToast,
                                         onRegistrationComplete = {
-                                            navController.popBackStack(GuavaCareRoutes.ROUTE_HOME, inclusive = false)
-                                        }
-                                    )
-                                },
-                                onGoogleSignInClick = {
-                                    viewModel.signInWithGoogle(
-                                        activityContext = context,
-                                        welcomeBackToast = strings.welcomeBackToast,
-                                        onAuthenticated = {
                                             navController.popBackStack(GuavaCareRoutes.ROUTE_HOME, inclusive = false)
                                         }
                                     )

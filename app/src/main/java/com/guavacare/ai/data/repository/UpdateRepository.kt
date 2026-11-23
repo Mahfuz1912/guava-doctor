@@ -234,12 +234,14 @@ class UpdateRepository(
             throw IOException("Release version tag missing in GitHub release.")
         }
 
+        val (notesEn, notesBn) = com.guavacare.ai.domain.model.ReleaseNotesFormatter.splitBilingualBody(body)
+
         return AppReleaseInfo(
             versionCode = versionCode,
             versionName = cleanName.ifEmpty { versionCode.toString() },
             apkUrl = apkUrl,
-            releaseNotesEn = body,
-            releaseNotesBn = "",
+            releaseNotesEn = notesEn,
+            releaseNotesBn = notesBn,
             forceUpdate = forceOverride,
             fileSizeBytes = apkSize,
             publishedAt = root.optString("published_at").trim().ifEmpty { null }
