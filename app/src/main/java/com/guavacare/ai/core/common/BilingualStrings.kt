@@ -185,6 +185,9 @@ interface AppStrings {
     val updateSizeLabel: String
     val updateReadyBadge: String
     val updateVerifiedApkLabel: String
+    val updateSafeUpgradeNote: String
+    val updateShowMore: String
+    val updateShowLess: String
     // Auth, Guest 3-Scan Quota & Cascading Location Dropdowns
     val guestFreeScansLeft: String
     val guestFreeScansExhausted: String

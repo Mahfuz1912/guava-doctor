@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -38,6 +40,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -125,18 +129,22 @@ fun ForceUpdateScreen(
     }
     val publishedDate = release?.publishedAt?.takeIf { it.length >= 10 }?.take(10)
 
+    val primaryOrbColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+    val secondaryOrbColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f)
+    val heroAccentRing = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+
     val backdropBrush = Brush.verticalGradient(
         colors = listOf(
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-            MaterialTheme.colorScheme.background,
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+            MaterialTheme.colorScheme.surfaceContainerLowest,
             MaterialTheme.colorScheme.background
         )
     )
 
     val heroBrush = Brush.linearGradient(
         colors = listOf(
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f),
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.62f)
         )
     )
 
@@ -150,133 +158,177 @@ fun ForceUpdateScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(backdropBrush)
+                .drawBehind {
+                    drawCircle(
+                        color = primaryOrbColor,
+                        radius = size.minDimension * 0.55f,
+                        center = Offset(size.width * 0.18f, size.height * 0.12f)
+                    )
+                    drawCircle(
+                        color = secondaryOrbColor,
+                        radius = size.minDimension * 0.42f,
+                        center = Offset(size.width * 0.88f, size.height * 0.84f)
+                    )
+                }
                 .windowInsetsPadding(WindowInsets.safeDrawing),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 480.dp)
+                    .widthIn(max = 460.dp)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Floating Modal Update Popup Sheet
+                // Full-bleed Hero Modal Update Popup Card
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(30.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                     border = BorderStroke(
                         0.8.dp,
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
                     ),
-                    shadowElevation = 6.dp
+                    shadowElevation = 10.dp
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        // Compact Top Header: Brand + Update Ready Pill + Language Switch
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.img_guava_doctor_icon_1795288631112),
-                                    contentDescription = strings.appTitle,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                )
-                                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                    Text(
-                                        text = strings.appTitle,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Full-Bleed Botanical Gradient Header
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(heroBrush)
+                                .drawBehind {
+                                    drawCircle(
+                                        color = heroAccentRing,
+                                        radius = size.width * 0.36f,
+                                        center = Offset(size.width * 0.92f, size.height * 0.18f)
                                     )
-                                    Text(
-                                        text = strings.updateReadyBadge,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
+                                    drawCircle(
+                                        color = heroAccentRing,
+                                        radius = size.width * 0.22f,
+                                        center = Offset(size.width * 0.08f, size.height * 0.88f)
                                     )
                                 }
-                            }
-
-                            Surface(
-                                onClick = onToggleLanguage,
-                                shape = RoundedCornerShape(999.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                border = BorderStroke(
-                                    0.6.dp,
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                                ),
-                                modifier = Modifier
-                                    .defaultMinSize(minHeight = 48.dp)
-                                    .testTag("force_update_lang_toggle")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Translate,
-                                        contentDescription = strings.languageLabel,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = if (language == AppLanguage.ENGLISH) "বাংলা" else "EN",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
-
-                        // Polished Hero Upgrade Banner
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(22.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            border = BorderStroke(
-                                0.8.dp,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                            )
                         ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(heroBrush)
-                                    .padding(16.dp),
+                                    .padding(horizontal = 18.dp, vertical = 14.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                // Subtle Modal Sheet Handle Pill
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .width(36.dp)
+                                        .height(4.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.22f)
+                                        )
+                                )
+
+                                // Top Identity Bar + Compact Language Toggle
                                 Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(11.dp),
+                                            shadowElevation = 2.dp
+                                        ) {
+                                            Image(
+                                                painter = painterResource(
+                                                    id = R.drawable.img_guava_doctor_icon_1795288631112
+                                                ),
+                                                contentDescription = strings.appTitle,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.size(34.dp)
+                                            )
+                                        }
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Text(
+                                                text = strings.appTitle,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(6.dp)
+                                                        .clip(CircleShape)
+                                                        .background(MaterialTheme.colorScheme.primary)
+                                                )
+                                                Text(
+                                                    text = strings.updateReadyBadge,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Surface(
+                                        onClick = onToggleLanguage,
+                                        shape = RoundedCornerShape(999.dp),
+                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                                        border = BorderStroke(
+                                            0.6.dp,
+                                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                        ),
+                                        modifier = Modifier
+                                            .defaultMinSize(minHeight = 48.dp)
+                                            .testTag("force_update_lang_toggle")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Translate,
+                                                contentDescription = strings.languageLabel,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                            Text(
+                                                text = if (language == AppLanguage.ENGLISH) "বাংলা" else "EN",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Hero Headline + Layered Update Emblem
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(54.dp)
-                                            .clip(CircleShape)
+                                            .size(56.dp)
+                                            .clip(RoundedCornerShape(18.dp))
                                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(42.dp)
-                                                .clip(CircleShape)
+                                                .size(44.dp)
+                                                .clip(RoundedCornerShape(14.dp))
                                                 .background(MaterialTheme.colorScheme.primary),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -294,58 +346,68 @@ fun ForceUpdateScreen(
                                     ) {
                                         Text(
                                             text = strings.updateAvailableTitle,
-                                            style = MaterialTheme.typography.titleLarge.copy(
-                                                letterSpacing = (-0.2).sp
+                                            style = MaterialTheme.typography.headlineSmall.copy(
+                                                letterSpacing = (-0.3).sp
                                             ),
-                                            fontWeight = FontWeight.Bold,
+                                            fontWeight = FontWeight.ExtraBold,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                         Text(
                                             text = strings.forceUpdateSubtitle,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
                                             lineHeight = 18.sp
                                         )
                                     }
                                 }
 
-                                UpdateVersionTransitionBar(
+                                // Segmented Version Upgrade Capsule
+                                UpdateVersionCapsule(
                                     currentLabel = strings.currentVersionLabel,
                                     currentVersionText = currentVersionText,
                                     newLabel = strings.newVersionLabel,
                                     newVersionText = remoteVersionText
                                 )
-
-                                UpdateMetadataChipsRow(
-                                    sizeMb = sizeMb,
-                                    publishedDate = publishedDate,
-                                    verifiedLabel = strings.updateVerifiedApkLabel
-                                )
                             }
                         }
 
-                        // Structured, Clean "What's New" Highlights List
-                        UpdateHighlightsCard(
-                            title = strings.whatsNewTitle,
-                            highlights = highlights,
-                            fallbackText = strings.defaultReleaseNotes
-                        )
+                        // Body Content: Metadata Strip, Structured Highlights & Animated Action Dock
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            UpdateSpecStrip(
+                                sizeMb = sizeMb,
+                                publishedDate = publishedDate,
+                                verifiedLabel = strings.updateVerifiedApkLabel
+                            )
 
-                        HorizontalDivider(
-                            thickness = 0.6.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-                        )
+                            UpdateHighlightsCard(
+                                title = strings.whatsNewTitle,
+                                highlights = highlights,
+                                fallbackText = strings.defaultReleaseNotes,
+                                showMoreLabel = strings.updateShowMore,
+                                showLessLabel = strings.updateShowLess
+                            )
 
-                        // Dynamic Action Footer (Update / Progress / Permission / Install / Retry)
-                        UpdateActionFooter(
-                            strings = strings,
-                            updateState = updateState,
-                            onStartDownload = onStartDownload,
-                            onCancelDownload = onCancelDownload,
-                            onInstallApk = onInstallApk,
-                            onOpenInstallPermissionSettings = onOpenInstallPermissionSettings,
-                            onRetry = onRetry
-                        )
+                            HorizontalDivider(
+                                thickness = 0.6.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+
+                            UpdateActionFooter(
+                                strings = strings,
+                                updateState = updateState,
+                                sizeMb = sizeMb,
+                                onStartDownload = onStartDownload,
+                                onCancelDownload = onCancelDownload,
+                                onInstallApk = onInstallApk,
+                                onOpenInstallPermissionSettings = onOpenInstallPermissionSettings,
+                                onRetry = onRetry
+                            )
+                        }
                     }
                 }
             }

@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v2.2)'
+        description: 'Release tag (e.g. v2.3)'
         required: true
-        default: 'v2.2'
+        default: 'v2.3'
 
       release_notes:
         description: 'Optional release notes (Bangla / English)'
@@ -306,18 +306,18 @@ jobs:
           else
             printf '%s\n' \
               "### English" \
-              "- Modern Home Page: Redesigned card-based layout with cleaner typography, Health Tools, and Quick Scan Tips." \
+              "- Upgraded Update Popup: Full-bleed botanical floating modal with segmented version capsule, expandable highlights, and animated download progress." \
+              "- Share App on About Page: One-tap native sharing from the About header and Quick Links with the latest download link." \
+              "- Modern Home Page: Redesigned card-based layout with Health Tools, Disease Guide shortcut, and unified Quick Scan Tips." \
               "- Account-Protected History & Insights: Scan history and orchard analytics sync and display securely when signed in." \
-              "- Google Sign-In & Auth Polish: Fixed Google Sign-In web client configuration and simplified the Registration screen." \
-              "- Redesigned Update Popup: Cleaner floating popup with structured bilingual highlights and instant progress tracking." \
-              "- Stability & Performance: Smoother navigation and verified automated test coverage." \
+              "- Google Sign-In & Stability: Verified Firebase OAuth web client setup, streamlined Registration, and full automated test coverage." \
               "" \
               "### বাংলা" \
-              "- আধুনিক হোম পেজ: পরিষ্কার টাইপোগ্রাফি, হেলথ টুলস ও দ্রুত স্ক্যান টিপসসহ নতুন কার্ড-ভিত্তিক ডিজাইন।" \
+              "- আরও সুন্দর আপডেট পপআপ: ফ্লোটিং মডাল ডিজাইন, আধুনিক ভার্সন ক্যাপসুল, সাজানো বাংলা-ইংরেজি হাইলাইটস এবং অ্যানিমেটেড ডাউনলোড প্রোগ্রেস।" \
+              "- About পেজে অ্যাপ শেয়ার বাটন: হেডার ও কুইক লিংকস থেকে এক ট্যাপেই বন্ধু ও কৃষকদের সাথে অ্যাপটি শেয়ার করা যাবে।" \
+              "- আধুনিক হোম পেজ: হেলথ টুলস, রোগ নির্দেশিকা ও দ্রুত স্ক্যান টিপসসহ নতুন কার্ড-ভিত্তিক লেআউট।" \
               "- লগিন-সুরক্ষিত হিস্ট্রি ও ইনসাইটস: অ্যাকাউন্টে লগিন করলে স্ক্যান হিস্ট্রি ও বাগান বিশ্লেষণ নিরাপদে দেখা ও সিঙ্ক করা যাবে।" \
-              "- উন্নত লগিন ও Google সাইন-ইন সমাধান: Google সাইন-ইন কনফিগারেশন ত্রুটি দূর করা হয়েছে এবং রেজিস্ট্রেশন পেজ সহজ করা হয়েছে।" \
-              "- সুন্দর ও অপটিমাইজড আপডেট পপআপ: নতুন সংস্করণের পরিবর্তনগুলো এখন বাংলা ও ইংরেজিতে সুন্দরভাবে গুছিয়ে দেখা যাবে।" \
-              "- দ্রুত পারফরম্যান্স ও স্থায়িত্ব: অ্যাপের গতি বাড়ানো হয়েছে এবং গুরুত্বপূর্ণ বাগ সমাধান করা হয়েছে।" \
+              "- Google সাইন-ইন ও স্থায়িত্ব: Firebase কনফিগারেশন যাচাই, সহজ রেজিস্ট্রেশন ও নির্ভরযোগ্য পারফরম্যান্স।" \
               "" \
               "Version: ${TAG}" \
               "versionCode: ${VERSION_CODE}" \
