@@ -414,11 +414,18 @@ fun RegisterScreen(
                         selectedUpazila = selectedUpazila,
                         onDivisionSelected = {
                             selectedDivision = it
-                            if (it.isNotBlank()) divisionError = null
+                            if (it.isNotBlank()) {
+                                divisionError = null
+                                districtError = null
+                                upazilaError = null
+                            }
                         },
                         onDistrictSelected = {
                             selectedDistrict = it
-                            if (it.isNotBlank()) districtError = null
+                            if (it.isNotBlank()) {
+                                districtError = null
+                                upazilaError = null
+                            }
                         },
                         onUpazilaSelected = {
                             selectedUpazila = it

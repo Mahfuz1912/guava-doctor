@@ -41,6 +41,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -226,16 +228,13 @@ private fun LocationDropdownTrigger(
             }
         )
         Surface(
+            onClick = onClick,
+            enabled = enabled,
             modifier = Modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 54.dp)
                 .alpha(if (enabled) 1f else 0.55f)
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(
-                    enabled = enabled,
-                    role = Role.DropdownList,
-                    onClick = onClick
-                )
+                .semantics { role = Role.DropdownList }
                 .testTag(testTag),
             shape = RoundedCornerShape(14.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -395,7 +394,8 @@ private fun LocationSearchPickerDialog(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f, fill = false),
+                            .weight(1f, fill = false)
+                            .testTag("${dialogTestTag}_list"),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         items(filtered, key = { it.nameEn }) { option ->
@@ -403,10 +403,11 @@ private fun LocationSearchPickerDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp)
                                     .clip(RoundedCornerShape(12.dp))
+                                    .testTag("location_option_${option.nameEn}")
                                     .clickable { onSelect(option) }
-                                    .padding(horizontal = 12.dp, vertical = 12.dp)
-                                    .testTag("location_option_${option.nameEn}"),
+                                    .padding(horizontal = 12.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {

@@ -89,8 +89,54 @@ jobs:
             echo "::warning::app/google-services.json is missing and GOOGLE_SERVICES_JSON_BASE64 secret is not set. Build will continue, but Firebase Auth/Firestore will not work in the APK until google-services.json is configured."
           fi
 
-      # 5. Build and test with retry
-      - name: Run unit tests and build APK
+      # 5a. Run unit tests (fail fast on deterministic test/compile errors; retry only transient network failures)
+      - name: Run unit tests
+        shell: bash
+        run: |
+          attempt=1
+          max_attempts=3
+          log_file="${GITHUB_WORKSPACE}/gradle-test.log"
+
+          while true; do
+            echo "Unit test attempt: $attempt/$max_attempts"
+
+            set +e
+            gradle \
+              :app:testDebugUnitTest \
+              --no-daemon \
+              --no-configuration-cache \
+              --console=plain 2>&1 | tee "$log_file"
+            status=${PIPESTATUS[0]}
+            set -e
+
+            if [ "$status" -eq 0 ]; then
+              echo "Unit tests passed."
+              break
+            fi
+
+            if grep -qE "There were failing tests|Compilation error|Unresolved reference" "$log_file"; then
+              echo "::error::Unit tests failed with a deterministic test or compilation failure. Stopping without retry."
+              exit "$status"
+            fi
+
+            if ! grep -qE "MavenArtifactFetcher|HttpURLConnection|ConnectException|SocketTimeoutException|UnknownHostException|Read timed out|Connection reset|Could not resolve|502|503|504" "$log_file"; then
+              echo "::error::Unit tests failed with a non-transient error. Stopping without retry."
+              exit "$status"
+            fi
+
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "::error::Unit tests failed after $max_attempts attempts."
+              exit "$status"
+            fi
+
+            delay=$((attempt * 30))
+            echo "::warning::Transient network/dependency error detected. Retrying in ${delay} seconds."
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
+
+      # 5b. Build release APK (fail fast on compile/packaging errors; retry only transient network failures)
+      - name: Build release APK
         shell: bash
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
@@ -99,35 +145,39 @@ jobs:
         run: |
           attempt=1
           max_attempts=3
+          log_file="${GITHUB_WORKSPACE}/gradle-release.log"
 
           while true; do
-            echo "Build attempt: $attempt/$max_attempts"
+            echo "Release build attempt: $attempt/$max_attempts"
 
-            if gradle \
-              :app:testDebugUnitTest \
+            set +e
+            gradle \
               :app:assembleRelease \
               --no-daemon \
               --no-configuration-cache \
-              --console=plain; then
+              --console=plain 2>&1 | tee "$log_file"
+            status=${PIPESTATUS[0]}
+            set -e
 
-              echo "Build successful."
+            if [ "$status" -eq 0 ]; then
+              echo "Release APK build successful."
               break
-
-            else
-              status=$?
-
-              if [ "$attempt" -ge "$max_attempts" ]; then
-                echo "::error::Build failed after $max_attempts attempts."
-                exit "$status"
-              fi
-
-              delay=$((attempt * 30))
-
-              echo "::warning::Build failed. Retrying in ${delay} seconds."
-
-              sleep "$delay"
-              attempt=$((attempt + 1))
             fi
+
+            if ! grep -qE "HttpURLConnection|ConnectException|SocketTimeoutException|UnknownHostException|Read timed out|Connection reset|Could not resolve|502|503|504" "$log_file"; then
+              echo "::error::Release APK build failed with a deterministic error. Stopping without retry."
+              exit "$status"
+            fi
+
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "::error::Release APK build failed after $max_attempts attempts."
+              exit "$status"
+            fi
+
+            delay=$((attempt * 30))
+            echo "::warning::Transient network/dependency error detected. Retrying in ${delay} seconds."
+            sleep "$delay"
+            attempt=$((attempt + 1))
           done
 
       # 6. Prepare APK

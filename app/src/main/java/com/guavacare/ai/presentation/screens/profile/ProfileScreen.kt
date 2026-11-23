@@ -594,11 +594,18 @@ private fun AuthenticatedProfileBody(
                 selectedUpazila = upazila,
                 onDivisionSelected = {
                     division = it
-                    if (it.isNotBlank()) divError = null
+                    if (it.isNotBlank()) {
+                        divError = null
+                        distError = null
+                        upaError = null
+                    }
                 },
                 onDistrictSelected = {
                     district = it
-                    if (it.isNotBlank()) distError = null
+                    if (it.isNotBlank()) {
+                        distError = null
+                        upaError = null
+                    }
                 },
                 onUpazilaSelected = {
                     upazila = it

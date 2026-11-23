@@ -556,6 +556,7 @@ fun ForgotPasswordDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(22.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {

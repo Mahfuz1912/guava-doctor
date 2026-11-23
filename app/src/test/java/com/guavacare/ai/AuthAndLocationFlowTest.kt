@@ -2,10 +2,16 @@ package com.guavacare.ai
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
@@ -28,6 +34,7 @@ import com.guavacare.ai.presentation.theme.GuavaCareTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -41,6 +48,25 @@ class AuthAndLocationFlowTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    private fun selectLocationOption(
+        dropdownTag: String,
+        dialogTag: String,
+        optionNameEn: String
+    ) {
+        composeRule.onNodeWithTag(dropdownTag)
+            .performScrollTo()
+            .assertIsEnabled()
+            .performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag(dialogTag).assertIsDisplayed()
+        composeRule.onNodeWithTag("${dialogTag}_list")
+            .performScrollToNode(hasTestTag("location_option_$optionNameEn"))
+        composeRule.onNodeWithTag("location_option_$optionNameEn")
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.waitForIdle()
+    }
 
     @Test
     fun bangladeshDirectoryContainsAll8Divisions64DistrictsAndUpazilas() {
@@ -122,21 +148,33 @@ class AuthAndLocationFlowTest {
         }
 
         composeRule.onNodeWithTag("login_screen").assertIsDisplayed()
-        composeRule.onNodeWithTag("login_limit_reached_banner").assertIsDisplayed()
+        composeRule.onNodeWithTag("login_limit_reached_banner").performScrollTo().assertIsDisplayed()
 
         // Test Email/Password login flow
-        composeRule.onNodeWithTag("login_email_input").performTextInput("farmer@example.com")
-        composeRule.onNodeWithTag("login_password_input").performTextInput("secret123")
-        composeRule.onNodeWithTag("login_email_submit_button").performClick()
+        composeRule.onNodeWithTag("login_email_input")
+            .performScrollTo()
+            .performTextInput("farmer@example.com")
+        composeRule.onNodeWithTag("login_password_input")
+            .performScrollTo()
+            .performTextInput("secret123")
+        composeRule.onNodeWithTag("login_email_submit_button")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
         assertEquals("farmer@example.com" to "secret123", emailLoginSubmitted)
 
         // Test Direct Google Sign-In button ("Sign in with Google")
+        composeRule.onNodeWithTag("login_google_button").performScrollTo()
         composeRule.onNodeWithText("Sign in with Google").assertIsDisplayed()
         composeRule.onNodeWithTag("login_google_button").performClick()
+        composeRule.waitForIdle()
         assertTrue(googleClicked)
 
         // Test navigation to separate Register page
-        composeRule.onNodeWithTag("go_to_register_button").performClick()
+        composeRule.onNodeWithTag("go_to_register_button")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
         assertTrue(registerClicked)
     }
 
@@ -167,28 +205,33 @@ class AuthAndLocationFlowTest {
         composeRule.onNodeWithTag("register_screen").assertIsDisplayed()
 
         // Enter Full Name, Email, Password, Confirm Password
-        composeRule.onNodeWithTag("register_name_input").performTextInput("Md. Karim Mia")
-        composeRule.onNodeWithTag("register_email_input").performTextInput("karim@example.com")
-        composeRule.onNodeWithTag("register_password_input").performTextInput("guava2026")
-        composeRule.onNodeWithTag("register_confirm_password_input").performTextInput("guava2026")
+        composeRule.onNodeWithTag("register_name_input")
+            .performScrollTo()
+            .performTextInput("Md. Karim Mia")
+        composeRule.onNodeWithTag("register_email_input")
+            .performScrollTo()
+            .performTextInput("karim@example.com")
+        composeRule.onNodeWithTag("register_password_input")
+            .performScrollTo()
+            .performTextInput("guava2026")
+        composeRule.onNodeWithTag("register_confirm_password_input")
+            .performScrollTo()
+            .performTextInput("guava2026")
 
         // 1. Select Division: Barishal
-        composeRule.onNodeWithTag("dropdown_division").performClick()
-        composeRule.onNodeWithTag("picker_dialog_division").assertIsDisplayed()
-        composeRule.onNodeWithTag("location_option_Barishal").performClick()
+        selectLocationOption("dropdown_division", "picker_dialog_division", "Barishal")
 
         // 2. Select District: Pirojpur
-        composeRule.onNodeWithTag("dropdown_district").performClick()
-        composeRule.onNodeWithTag("picker_dialog_district").assertIsDisplayed()
-        composeRule.onNodeWithTag("location_option_Pirojpur").performClick()
+        selectLocationOption("dropdown_district", "picker_dialog_district", "Pirojpur")
 
         // 3. Select Upazila: Pirojpur Sadar
-        composeRule.onNodeWithTag("dropdown_upazila").performClick()
-        composeRule.onNodeWithTag("picker_dialog_upazila").assertIsDisplayed()
-        composeRule.onNodeWithTag("location_option_Pirojpur Sadar").performClick()
+        selectLocationOption("dropdown_upazila", "picker_dialog_upazila", "Pirojpur Sadar")
 
         // Submit Email/Password Registration
-        composeRule.onNodeWithTag("register_submit_button").performClick()
+        composeRule.onNodeWithTag("register_submit_button")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
 
         assertEquals(
             listOf("Md. Karim Mia", "karim@example.com", "guava2026", "Barishal", "Pirojpur", "Pirojpur Sadar"),
@@ -196,8 +239,87 @@ class AuthAndLocationFlowTest {
         )
 
         // Verify direct Google Sign-In shortcut also exists on RegisterScreen
-        composeRule.onNodeWithTag("register_google_button").performClick()
+        composeRule.onNodeWithTag("register_google_button")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
         assertTrue(googleClicked)
+    }
+
+    @Test
+    fun registerScreenCascadingLocationDropdownsResetDependentSelections() {
+        val strings = BilingualStrings.get(AppLanguage.ENGLISH)
+        var submitted: List<String>? = null
+
+        composeRule.setContent {
+            GuavaCareTheme(themeMode = ThemeMode.LIGHT, language = AppLanguage.ENGLISH) {
+                RegisterScreen(
+                    strings = strings,
+                    language = AppLanguage.ENGLISH,
+                    isLoading = false,
+                    errorMessage = null,
+                    onSubmitEmailRegistration = { name, email, password, division, district, upazila ->
+                        submitted = listOf(name, email, password, division, district, upazila)
+                    },
+                    onGoogleSignInClick = {},
+                    onNavigateToLogin = {},
+                    onToggleLanguage = {},
+                    onBack = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("register_name_input")
+            .performScrollTo()
+            .performTextInput("Amina Khatun")
+        composeRule.onNodeWithTag("register_email_input")
+            .performScrollTo()
+            .performTextInput("amina@example.com")
+        composeRule.onNodeWithTag("register_password_input")
+            .performScrollTo()
+            .performTextInput("guava2026")
+        composeRule.onNodeWithTag("register_confirm_password_input")
+            .performScrollTo()
+            .performTextInput("guava2026")
+
+        // Initially district and upazila dropdowns are disabled until parent is selected
+        composeRule.onNodeWithTag("dropdown_district").performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithTag("dropdown_upazila").performScrollTo().assertIsNotEnabled()
+
+        // Select Dhaka -> Gazipur -> Sreepur
+        selectLocationOption("dropdown_division", "picker_dialog_division", "Dhaka")
+        selectLocationOption("dropdown_district", "picker_dialog_district", "Gazipur")
+        selectLocationOption("dropdown_upazila", "picker_dialog_upazila", "Sreepur")
+
+        // Changing Division to Barishal must reset District and Upazila
+        selectLocationOption("dropdown_division", "picker_dialog_division", "Barishal")
+        composeRule.onNodeWithTag("dropdown_district").performScrollTo().assertIsEnabled()
+        composeRule.onNodeWithTag("dropdown_upazila").performScrollTo().assertIsNotEnabled()
+
+        // Submitting without re-selecting District & Upazila must be blocked by validation
+        composeRule.onNodeWithTag("register_submit_button").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertNull(submitted)
+
+        // Pick Barishal district -> Bakerganj upazila, then change district to Pirojpur (must reset upazila)
+        selectLocationOption("dropdown_district", "picker_dialog_district", "Barishal")
+        selectLocationOption("dropdown_upazila", "picker_dialog_upazila", "Bakerganj")
+        selectLocationOption("dropdown_district", "picker_dialog_district", "Pirojpur")
+
+        // Submitting without re-selecting Upazila must be blocked because changing District cleared Upazila
+        composeRule.onNodeWithTag("register_submit_button").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertNull(submitted)
+
+        // Pick Pirojpur Sadar and submit
+        selectLocationOption("dropdown_upazila", "picker_dialog_upazila", "Pirojpur Sadar")
+        composeRule.onNodeWithTag("register_submit_button").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(
+            listOf("Amina Khatun", "amina@example.com", "guava2026", "Barishal", "Pirojpur", "Pirojpur Sadar"),
+            submitted
+        )
     }
 
     @Test
@@ -261,11 +383,35 @@ class AuthAndLocationFlowTest {
             }
         }
 
-        composeRule.onNodeWithTag("login_email_input").performTextInput("grower@example.com")
-        composeRule.onNodeWithTag("login_forgot_password_button").performClick()
+        composeRule.onNodeWithTag("login_email_input")
+            .performScrollTo()
+            .performTextInput("grower@example.com")
+        composeRule.onNodeWithTag("login_forgot_password_button")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
+
         composeRule.onNodeWithTag("forgot_password_dialog").assertIsDisplayed()
-        composeRule.onNodeWithTag("forgot_password_submit_button").performClick()
+        composeRule.onNodeWithTag("forgot_password_email_input")
+            .assertTextContains("grower@example.com")
+        composeRule.onNodeWithTag("forgot_password_submit_button")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
         assertEquals("grower@example.com", resetEmailRequested)
+
+        // Invalid email must be rejected by dialog validation
+        resetEmailRequested = null
+        composeRule.onNodeWithTag("forgot_password_email_input")
+            .performScrollTo()
+            .performTextClearance()
+        composeRule.onNodeWithTag("forgot_password_email_input")
+            .performTextInput("invalid-email")
+        composeRule.onNodeWithTag("forgot_password_submit_button")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
+        assertNull(resetEmailRequested)
     }
 
     @Test
@@ -311,17 +457,21 @@ class AuthAndLocationFlowTest {
 
         composeRule.onNodeWithTag("profile_screen").assertIsDisplayed()
         composeRule.onNodeWithTag("profile_hero_name").assertIsDisplayed()
-        composeRule.onNodeWithTag("profile_name_input").performTextClearance()
-        composeRule.onNodeWithTag("profile_name_input").performTextInput("Md. Rahim Mia")
+        composeRule.onNodeWithTag("profile_name_input")
+            .performScrollTo()
+            .performTextClearance()
+        composeRule.onNodeWithTag("profile_name_input")
+            .performScrollTo()
+            .performTextInput("Md. Rahim Mia")
 
-        composeRule.onNodeWithTag("dropdown_division").performClick()
-        composeRule.onNodeWithTag("location_option_Barishal").performClick()
-        composeRule.onNodeWithTag("dropdown_district").performClick()
-        composeRule.onNodeWithTag("location_option_Pirojpur").performClick()
-        composeRule.onNodeWithTag("dropdown_upazila").performClick()
-        composeRule.onNodeWithTag("location_option_Pirojpur Sadar").performClick()
+        selectLocationOption("dropdown_division", "picker_dialog_division", "Barishal")
+        selectLocationOption("dropdown_district", "picker_dialog_district", "Pirojpur")
+        selectLocationOption("dropdown_upazila", "picker_dialog_upazila", "Pirojpur Sadar")
 
-        composeRule.onNodeWithTag("profile_save_button").performClick()
+        composeRule.onNodeWithTag("profile_save_button")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
         assertEquals(
             listOf("Md. Rahim Mia", "Barishal", "Pirojpur", "Pirojpur Sadar"),
             updated
