@@ -457,6 +457,40 @@ class MainViewModel(
         }
     }
 
+    private suspend fun completeDirectAuthenticatedSession(
+        user: FirebaseUser,
+        resolvedEmail: String,
+        authProvider: String,
+        welcomeBackToast: String,
+        onAuthenticated: () -> Unit
+    ) {
+        val profileResult = container.cloudAccountRepository.ensureDirectSignInProfile(
+            uid = user.uid,
+            displayName = user.displayName.orEmpty(),
+            email = resolvedEmail,
+            photoUrl = user.photoUrl?.toString(),
+            authProvider = authProvider
+        )
+        val profile = profileResult.getOrElse {
+            com.guavacare.ai.domain.model.UserProfile(
+                id = user.uid,
+                userId = user.uid,
+                fullName = user.displayName?.takeIf { it.isNotBlank() }
+                    ?: resolvedEmail.substringBefore("@").ifBlank { "Guava Grower" },
+                email = resolvedEmail,
+                authProvider = authProvider,
+                photoUrl = user.photoUrl?.toString(),
+                profileCompleted = true
+            )
+        }
+        activeObservedUid = user.uid
+        _authState.value = AuthUiState.Authenticated(profile)
+        startAuthenticatedCloudSync(user.uid)
+        _authLoading.value = false
+        _snackbarMessage.value = welcomeBackToast
+        onAuthenticated()
+    }
+
     /**
      * Direct one-tap Google Sign-In — no Register form required.
      * Enforces one-email-one-account uniqueness across Google and Email/Password.
@@ -482,31 +516,13 @@ class MainViewModel(
                         )
                     ) {
                         EmailUniquenessCheckResult.Allowed -> {
-                            val profileResult = container.cloudAccountRepository.ensureDirectSignInProfile(
-                                uid = user.uid,
-                                displayName = user.displayName.orEmpty(),
-                                email = email,
-                                photoUrl = user.photoUrl?.toString(),
-                                authProvider = AUTH_PROVIDER_GOOGLE
+                            completeDirectAuthenticatedSession(
+                                user = user,
+                                resolvedEmail = email,
+                                authProvider = AUTH_PROVIDER_GOOGLE,
+                                welcomeBackToast = welcomeBackToast,
+                                onAuthenticated = onAuthenticated
                             )
-                            val profile = profileResult.getOrElse {
-                                com.guavacare.ai.domain.model.UserProfile(
-                                    id = user.uid,
-                                    userId = user.uid,
-                                    fullName = user.displayName?.takeIf { it.isNotBlank() }
-                                        ?: email.substringBefore("@").ifBlank { "Guava Grower" },
-                                    email = email,
-                                    authProvider = AUTH_PROVIDER_GOOGLE,
-                                    photoUrl = user.photoUrl?.toString(),
-                                    profileCompleted = true
-                                )
-                            }
-                            activeObservedUid = user.uid
-                            _authState.value = AuthUiState.Authenticated(profile)
-                            startAuthenticatedCloudSync(user.uid)
-                            _authLoading.value = false
-                            _snackbarMessage.value = welcomeBackToast
-                            onAuthenticated()
                         }
 
                         is EmailUniquenessCheckResult.AlreadyUsedByOtherProvider -> {
@@ -534,11 +550,19 @@ class MainViewModel(
                         }
 
                         is EmailUniquenessCheckResult.Failure -> {
-                            cancelCloudListeners()
-                            GoogleAuthHelper.signOutCleanly(activityContext)
-                            _authState.value = AuthUiState.Guest
-                            _authLoading.value = false
-                            _authError.value = lockCheck.message
+                            // Firebase Auth already succeeded with Google; do not destroy the user's
+                            // session on a transient Firestore/network/email_registry error.
+                            Log.w(
+                                "Auth",
+                                "Proceeding with authenticated Google session after transient email_registry error: ${lockCheck.message}"
+                            )
+                            completeDirectAuthenticatedSession(
+                                user = user,
+                                resolvedEmail = email,
+                                authProvider = AUTH_PROVIDER_GOOGLE,
+                                welcomeBackToast = welcomeBackToast,
+                                onAuthenticated = onAuthenticated
+                            )
                         }
                     }
                 }
@@ -583,30 +607,13 @@ class MainViewModel(
                         )
                     ) {
                         EmailUniquenessCheckResult.Allowed -> {
-                            val profileResult = container.cloudAccountRepository.ensureDirectSignInProfile(
-                                uid = user.uid,
-                                displayName = user.displayName.orEmpty(),
-                                email = resolvedEmail,
-                                photoUrl = user.photoUrl?.toString(),
-                                authProvider = AUTH_PROVIDER_PASSWORD
+                            completeDirectAuthenticatedSession(
+                                user = user,
+                                resolvedEmail = resolvedEmail,
+                                authProvider = AUTH_PROVIDER_PASSWORD,
+                                welcomeBackToast = welcomeBackToast,
+                                onAuthenticated = onAuthenticated
                             )
-                            val profile = profileResult.getOrElse {
-                                com.guavacare.ai.domain.model.UserProfile(
-                                    id = user.uid,
-                                    userId = user.uid,
-                                    fullName = user.displayName?.takeIf { it.isNotBlank() }
-                                        ?: resolvedEmail.substringBefore("@").ifBlank { "Guava Grower" },
-                                    email = resolvedEmail,
-                                    authProvider = AUTH_PROVIDER_PASSWORD,
-                                    profileCompleted = true
-                                )
-                            }
-                            activeObservedUid = user.uid
-                            _authState.value = AuthUiState.Authenticated(profile)
-                            startAuthenticatedCloudSync(user.uid)
-                            _authLoading.value = false
-                            _snackbarMessage.value = welcomeBackToast
-                            onAuthenticated()
                         }
 
                         is EmailUniquenessCheckResult.AlreadyUsedByOtherProvider -> {
@@ -634,15 +641,17 @@ class MainViewModel(
                         }
 
                         is EmailUniquenessCheckResult.Failure -> {
-                            cancelCloudListeners()
-                            GoogleAuthHelper.rollbackDuplicateAccountAndSignOut(
-                                context = null,
-                                user = user,
-                                deleteIfNewlyCreated = false
+                            Log.w(
+                                "Auth",
+                                "Proceeding with authenticated password session after transient email_registry error: ${lockCheck.message}"
                             )
-                            _authState.value = AuthUiState.Guest
-                            _authLoading.value = false
-                            _authError.value = lockCheck.message
+                            completeDirectAuthenticatedSession(
+                                user = user,
+                                resolvedEmail = resolvedEmail,
+                                authProvider = AUTH_PROVIDER_PASSWORD,
+                                welcomeBackToast = welcomeBackToast,
+                                onAuthenticated = onAuthenticated
+                            )
                         }
                     }
                 }

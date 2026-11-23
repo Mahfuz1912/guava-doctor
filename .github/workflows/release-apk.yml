@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v2.3)'
+        description: 'Release tag (e.g. v3.0)'
         required: true
-        default: 'v2.3'
+        default: 'v3.0'
 
       release_notes:
         description: 'Optional release notes (Bangla / English)'
@@ -301,28 +301,22 @@ jobs:
           CUSTOM_NOTES="${{ github.event.inputs.release_notes }}"
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$CUSTOM_NOTES" ]; then
-            printf '%s\n\nVersion: %s\nversionCode: %s\n\nSigned Android APK with release keystore.\n' \
-              "$CUSTOM_NOTES" "$TAG" "$VERSION_CODE" > "$BODY_FILE"
+            printf '%s\n' "$CUSTOM_NOTES" > "$BODY_FILE"
           else
             printf '%s\n' \
               "### English" \
-              "- Upgraded Update Popup: Full-bleed botanical floating modal with segmented version capsule, expandable highlights, and animated download progress." \
-              "- Share App on About Page: One-tap native sharing from the About header and Quick Links with the latest download link." \
-              "- Modern Home Page: Redesigned card-based layout with Health Tools, Disease Guide shortcut, and unified Quick Scan Tips." \
-              "- Account-Protected History & Insights: Scan history and orchard analytics sync and display securely when signed in." \
-              "- Google Sign-In & Stability: Verified Firebase OAuth web client setup, streamlined Registration, and full automated test coverage." \
+              "- Reliable Google Sign-In: Upgraded login flow with automatic official Firebase OAuth fallback and smoother cloud session handling." \
+              "- Streamlined Home & Navigation: Settings-only top bar, Profile tab right in the bottom bar for signed-in growers, and a dedicated Orchard Insights card above Recent Scans." \
+              "- Cleaner Settings & About Pages: Removed redundant Grower Account card from Settings and simplified About page quick actions." \
+              "- Smarter Bilingual Updates: What's New dropdown now shows clean, language-matched release highlights without clutter." \
+              "- Verified Stability: Full automated unit and Compose UI test coverage for dependable everyday orchard scanning." \
               "" \
               "### বাংলা" \
-              "- আরও সুন্দর আপডেট পপআপ: ফ্লোটিং মডাল ডিজাইন, আধুনিক ভার্সন ক্যাপসুল, সাজানো বাংলা-ইংরেজি হাইলাইটস এবং অ্যানিমেটেড ডাউনলোড প্রোগ্রেস।" \
-              "- About পেজে অ্যাপ শেয়ার বাটন: হেডার ও কুইক লিংকস থেকে এক ট্যাপেই বন্ধু ও কৃষকদের সাথে অ্যাপটি শেয়ার করা যাবে।" \
-              "- আধুনিক হোম পেজ: হেলথ টুলস, রোগ নির্দেশিকা ও দ্রুত স্ক্যান টিপসসহ নতুন কার্ড-ভিত্তিক লেআউট।" \
-              "- লগিন-সুরক্ষিত হিস্ট্রি ও ইনসাইটস: অ্যাকাউন্টে লগিন করলে স্ক্যান হিস্ট্রি ও বাগান বিশ্লেষণ নিরাপদে দেখা ও সিঙ্ক করা যাবে।" \
-              "- Google সাইন-ইন ও স্থায়িত্ব: Firebase কনফিগারেশন যাচাই, সহজ রেজিস্ট্রেশন ও নির্ভরযোগ্য পারফরম্যান্স।" \
-              "" \
-              "Version: ${TAG}" \
-              "versionCode: ${VERSION_CODE}" \
-              "" \
-              "Signed Android APK with release keystore." > "$BODY_FILE"
+              "- নির্ভরযোগ্য Google সাইন-ইন: অটোমেটিক অফিসিয়াল Firebase OAuth ফলব্যাকসহ আরও সহজ ও স্থায়ী গুগল লগইন অভিজ্ঞতা।" \
+              "- গোছানো হোম পেজ ও নেভিগেশন: টপ বারে শুধু সেটিংস, লগইনকৃত ব্যবহারকারীদের জন্য বটম বারে প্রোফাইল ট্যাব এবং রিসেন্ট স্ক্যানের উপরে ডেডিকেটেড Orchard Insights কার্ড।" \
+              "- পরিচ্ছন্ন সেটিংস ও অ্যাবাউট পেজ: সেটিংস থেকে অতিরিক্ত অ্যাকাউন্ট কার্ড এবং অ্যাবাউট পেজের অপ্রয়োজনীয় শর্টকাট সরানো হয়েছে।" \
+              "- স্মার্ট বাংলা-ইংরেজি আপডেট তালিকা: নির্বাচিত ভাষা অনুযায়ী What's New ড্রপডাউনে পরিষ্কার আপডেট তথ্য।" \
+              "- যাচাইকৃত স্থায়িত্ব ও পারফরম্যান্স: সম্পূর্ণ অটোমেটেড টেস্ট কভারেজসহ দ্রুত ও নির্ভরযোগ্য স্ক্যানিং।" > "$BODY_FILE"
           fi
 
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"

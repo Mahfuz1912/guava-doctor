@@ -16,7 +16,9 @@ interface AppStrings {
     val navScan: String
     val navHistory: String
     val navInsights: String
+    val navProfile: String
     val navAbout: String
+    val homeViewFullInsightsAction: String
     val settings: String
     val quickScan: String
     val galleryUpload: String
@@ -188,6 +190,8 @@ interface AppStrings {
     val updateSafeUpgradeNote: String
     val updateShowMore: String
     val updateShowLess: String
+    val updateTapToViewChanges: String
+    val updateHideChanges: String
     // Auth, Guest 3-Scan Quota & Cascading Location Dropdowns
     val guestFreeScansLeft: String
     val guestFreeScansExhausted: String

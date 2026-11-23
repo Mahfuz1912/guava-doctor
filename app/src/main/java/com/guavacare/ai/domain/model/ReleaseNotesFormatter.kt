@@ -87,6 +87,27 @@ object ReleaseNotesFormatter {
         }
     }
 
+    /**
+     * Selects strictly one language's release notes matching [language], automatically splitting
+     * combined bilingual markdown bodies if needed.
+     */
+    fun extractForLanguage(
+        releaseNotesEn: String,
+        releaseNotesBn: String,
+        language: AppLanguage,
+        fallback: String
+    ): String {
+        val (enText, bnText) = if (releaseNotesBn.isBlank() && releaseNotesEn.isNotBlank()) {
+            splitBilingualBody(releaseNotesEn)
+        } else {
+            releaseNotesEn.trim() to releaseNotesBn.trim()
+        }
+        return when (language) {
+            AppLanguage.BANGLA -> bnText.ifBlank { enText }.ifBlank { fallback }
+            AppLanguage.ENGLISH -> enText.ifBlank { bnText }.ifBlank { fallback }
+        }
+    }
+
     fun parseHighlights(rawNotes: String): List<ReleaseNoteHighlight> {
         val cleanedLines = rawNotes
             .replace("\r\n", "\n")

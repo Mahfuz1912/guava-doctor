@@ -84,10 +84,7 @@ import com.guavacare.ai.domain.model.OrchardInsightsSummary
 @Composable
 internal fun HomeTopBar(
     strings: AppStrings,
-    language: AppLanguage,
     authState: AuthUiState,
-    onToggleLanguage: () -> Unit,
-    onOpenProfile: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     Row(
@@ -168,82 +165,22 @@ internal fun HomeTopBar(
             }
         }
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            Surface(
-                onClick = onToggleLanguage,
-                shape = RoundedCornerShape(999.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+            IconButton(
+                onClick = onOpenSettings,
                 modifier = Modifier
-                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                    .testTag("home_language_toggle")
+                    .size(48.dp)
+                    .testTag("open_settings_button")
             ) {
-                Box(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (language == AppLanguage.BANGLA) "EN" else "বাং",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            if (authState is AuthUiState.Authenticated) {
-                Surface(
-                    onClick = onOpenProfile,
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("home_profile_button")
-                ) {
-                    val photoUrl = authState.profile.photoUrl
-                    if (!photoUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = photoUrl,
-                            contentDescription = strings.profileTitle,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                        )
-                    } else {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.Person,
-                                contentDescription = strings.profileTitle,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                IconButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("open_settings_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Settings,
-                        contentDescription = strings.settings,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = strings.settings,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -593,9 +530,7 @@ internal fun ModernQuickScanCta(
 @Composable
 internal fun HomeHealthToolsRow(
     strings: AppStrings,
-    authState: AuthUiState,
     onGalleryUploadClick: () -> Unit,
-    onOpenInsights: () -> Unit,
     onOpenAbout: () -> Unit
 ) {
     Row(
@@ -613,29 +548,16 @@ internal fun HomeHealthToolsRow(
             modifier = Modifier.weight(1f)
         )
 
-        if (authState is AuthUiState.Authenticated) {
-            HomeToolTile(
-                icon = Icons.Filled.Insights,
-                title = strings.navInsights,
-                subtitle = strings.homeInsightsTileSubtitle,
-                iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                iconTint = MaterialTheme.colorScheme.secondary,
-                onClick = onOpenInsights,
-                testTag = "home_open_insights_button",
-                modifier = Modifier.weight(1f)
-            )
-        } else {
-            HomeToolTile(
-                icon = Icons.Filled.MenuBook,
-                title = strings.homeDiseaseGuideTitle,
-                subtitle = strings.homeDiseaseGuideSubtitle,
-                iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                iconTint = MaterialTheme.colorScheme.secondary,
-                onClick = onOpenAbout,
-                testTag = "home_disease_guide_button",
-                modifier = Modifier.weight(1f)
-            )
-        }
+        HomeToolTile(
+            icon = Icons.Filled.MenuBook,
+            title = strings.homeDiseaseGuideTitle,
+            subtitle = strings.homeDiseaseGuideSubtitle,
+            iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            iconTint = MaterialTheme.colorScheme.secondary,
+            onClick = onOpenAbout,
+            testTag = "home_disease_guide_button",
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -728,7 +650,7 @@ internal fun HomeOrchardSnapshotCard(
         onClick = onOpenInsights,
         shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("home_orchard_summary_card")
@@ -745,13 +667,14 @@ internal fun HomeOrchardSnapshotCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(9.dp))
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
@@ -759,41 +682,42 @@ internal fun HomeOrchardSnapshotCard(
                             imageVector = Icons.Filled.Insights,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    Text(
-                        text = strings.insightsTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(
+                            text = strings.insightsTitle,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = strings.homeInsightsTileSubtitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (healthPct != null) {
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Text(
-                                text = "$healthPct%",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
-                            )
-                        }
+                if (healthPct != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "$healthPct%",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
                     }
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                        modifier = Modifier.size(18.dp)
-                    )
                 }
             }
 
@@ -836,6 +760,40 @@ internal fun HomeOrchardSnapshotCard(
                     valueColor = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            HorizontalDivider(
+                thickness = 0.8.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("home_insights_cta_row"),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = strings.homeViewFullInsightsAction,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = strings.homeViewFullInsightsAction,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }

@@ -103,19 +103,21 @@ fun ForceUpdateScreen(
         else -> null
     }
 
-    val currentVersionText = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+    val currentVersionText = "v${BuildConfig.VERSION_NAME}"
     val remoteVersionText = release?.let { rel ->
-        val codePart = rel.versionCode?.let { " ($it)" } ?: ""
-        "v${rel.versionName}$codePart"
+        "v${rel.versionName}"
     } ?: "v${BuildConfig.VERSION_NAME}"
 
     val rawReleaseNotes = remember(release, language, strings) {
         if (release == null) {
             strings.defaultReleaseNotes
-        } else if (language == AppLanguage.BANGLA) {
-            release.releaseNotesBn.ifBlank { release.releaseNotesEn }.ifBlank { strings.defaultReleaseNotes }
         } else {
-            release.releaseNotesEn.ifBlank { release.releaseNotesBn }.ifBlank { strings.defaultReleaseNotes }
+            ReleaseNotesFormatter.extractForLanguage(
+                releaseNotesEn = release.releaseNotesEn,
+                releaseNotesBn = release.releaseNotesBn,
+                language = language,
+                fallback = strings.defaultReleaseNotes
+            )
         }
     }
 
@@ -384,12 +386,12 @@ fun ForceUpdateScreen(
                                 verifiedLabel = strings.updateVerifiedApkLabel
                             )
 
-                            UpdateHighlightsCard(
+                            UpdateWhatsNewDropdown(
                                 title = strings.whatsNewTitle,
+                                collapsedHint = strings.updateTapToViewChanges,
+                                expandedHint = strings.updateHideChanges,
                                 highlights = highlights,
-                                fallbackText = strings.defaultReleaseNotes,
-                                showMoreLabel = strings.updateShowMore,
-                                showLessLabel = strings.updateShowLess
+                                fallbackText = strings.defaultReleaseNotes
                             )
 
                             HorizontalDivider(

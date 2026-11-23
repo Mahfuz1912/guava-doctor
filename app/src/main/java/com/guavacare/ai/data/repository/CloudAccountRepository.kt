@@ -111,9 +111,16 @@ class CloudAccountRepository(
             throw ce
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.GET, path)
-            EmailUniquenessCheckResult.Failure(
-                e.localizedMessage ?: "Unable to verify email uniqueness. Please check your connection."
-            )
+            // Even if email_registry lookup fails (e.g., transient network/rules lag), still check /users/{uid}
+            val existingProfileSnap = runCatching { userDocRef(uid).get().await() }.getOrNull()
+            val existingProfileProvider = existingProfileSnap?.getString("authProvider").orEmpty()
+            if (existingProfileProvider.isNotBlank() && existingProfileProvider != provider) {
+                EmailUniquenessCheckResult.AlreadyUsedByOtherProvider(existingProfileProvider)
+            } else {
+                EmailUniquenessCheckResult.Failure(
+                    e.localizedMessage ?: "Unable to verify email uniqueness. Please check your connection."
+                )
+            }
         }
     }
 

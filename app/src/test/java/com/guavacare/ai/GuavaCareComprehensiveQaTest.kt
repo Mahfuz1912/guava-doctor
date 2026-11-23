@@ -642,16 +642,14 @@ class GuavaCareComprehensiveQaTest {
             .performScrollToNode(hasTestTag("about_research_button"))
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("about_research_button").performClick()
+        composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag("about_lazy_column")
-            .performScrollToNode(hasTestTag("about_open_settings_button"))
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("about_open_settings_button").performClick()
-        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("about_header_share_button").assertDoesNotExist()
+        composeRule.onNodeWithTag("about_open_settings_button").assertDoesNotExist()
 
         assertTrue(privacyClicked)
         assertTrue(researchClicked)
-        assertTrue(settingsClicked)
+        assertFalse(settingsClicked)
     }
 
     private fun fillBitmap(width: Int, height: Int, pixelAt: (Int, Int) -> Int): Bitmap {

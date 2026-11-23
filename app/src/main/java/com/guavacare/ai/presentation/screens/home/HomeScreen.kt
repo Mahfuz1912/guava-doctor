@@ -95,14 +95,11 @@ fun HomeScreen(
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Clean Top Header Bar
+            // 1. Clean Top Header Bar (Settings only on the right)
             item {
                 HomeTopBar(
                     strings = strings,
-                    language = language,
                     authState = authState,
-                    onToggleLanguage = onToggleLanguage,
-                    onOpenProfile = onOpenProfile,
                     onOpenSettings = onOpenSettings
                 )
             }
@@ -140,9 +137,7 @@ fun HomeScreen(
 
                     HomeHealthToolsRow(
                         strings = strings,
-                        authState = authState,
                         onGalleryUploadClick = onGalleryUploadClick,
-                        onOpenInsights = onOpenInsights,
                         onOpenAbout = onOpenAbout
                     )
                 }

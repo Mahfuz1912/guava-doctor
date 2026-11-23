@@ -234,18 +234,36 @@ class AppUpdateTest {
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("force_update_screen").assertIsDisplayed()
-        composeRule.onNodeWithText("v$nextName ($nextCode)").assertIsDisplayed()
+        // Version pill shows clean versionName without versionCode
+        composeRule.onNodeWithText("v$nextName").assertIsDisplayed()
+        composeRule.onNodeWithText("v$nextName ($nextCode)").assertDoesNotExist()
+
+        // What's New starts collapsed as a dropdown; expands on tap and shows ONLY active language (Bangla)
+        composeRule.onNodeWithText("নতুন সংস্করণ ২.০ তে দ্রুত রোগ নির্ণয় সুবিধা।").assertDoesNotExist()
+        composeRule.onNodeWithTag("force_update_whats_new_dropdown")
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("নতুন সংস্করণ ২.০ তে দ্রুত রোগ নির্ণয় সুবিধা।")
             .performScrollTo()
             .assertIsDisplayed()
+        composeRule.onNodeWithText("New v$nextName diagnosis speed boost.").assertDoesNotExist()
+
         composeRule.onNodeWithTag("force_update_download_button")
             .performScrollTo()
             .performClick()
         composeRule.waitForIdle()
         assertTrue(downloadClicked)
 
-        // Transition to Downloading state in English
+        // Switching to English shows ONLY English release notes inside the expanded dropdown
         langHolder.value = AppLanguage.ENGLISH
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("New v$nextName diagnosis speed boost.")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("নতুন সংস্করণ ২.০ তে দ্রুত রোগ নির্ণয় সুবিধা।").assertDoesNotExist()
+
+        // Transition to Downloading state in English
         stateHolder.value = AppUpdateState.Downloading(
             release = release,
             bytesDownloaded = 20_971_520L,
@@ -294,15 +312,13 @@ class AppUpdateTest {
             }
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("about_header_share_button").assertIsDisplayed().performClick()
-        composeRule.waitForIdle()
-        assertEquals(1, shareCount)
+        composeRule.onNodeWithTag("about_header_share_button").assertDoesNotExist()
 
         composeRule.onNodeWithTag("about_lazy_column")
             .performScrollToNode(androidx.compose.ui.test.hasTestTag("about_check_updates_button"))
         composeRule.onNodeWithTag("about_share_app_button").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
-        assertEquals(2, shareCount)
+        assertEquals(1, shareCount)
 
         composeRule.onNodeWithTag("about_update_status_text").assertIsDisplayed()
         composeRule.onNodeWithTag("about_check_updates_button").performClick()

@@ -141,8 +141,12 @@ fun GuavaCareApp(viewModel: MainViewModel) {
 
     fun openProfile() {
         viewModel.clearPasswordResetState()
-        navController.navigate(GuavaCareRoutes.ROUTE_PROFILE) {
-            launchSingleTop = true
+        if (authState is AuthUiState.Authenticated) {
+            navigateTopLevel(GuavaCareRoutes.ROUTE_PROFILE)
+        } else {
+            navController.navigate(GuavaCareRoutes.ROUTE_PROFILE) {
+                launchSingleTop = true
+            }
         }
     }
 
@@ -160,10 +164,12 @@ fun GuavaCareApp(viewModel: MainViewModel) {
         visibleTopLevelDestinations(isAuthenticated)
     }
 
-    // Redirect away from auth-only tabs (History / Insights) if user signs out
+    // Redirect away from auth-only screens (History / Profile / Insights) if user signs out
     LaunchedEffect(isAuthenticated, currentRoute) {
         if (!isAuthenticated &&
-            (currentRoute == GuavaCareRoutes.ROUTE_HISTORY || currentRoute == GuavaCareRoutes.ROUTE_INSIGHTS)
+            (currentRoute == GuavaCareRoutes.ROUTE_HISTORY ||
+                currentRoute == GuavaCareRoutes.ROUTE_PROFILE ||
+                currentRoute == GuavaCareRoutes.ROUTE_INSIGHTS)
         ) {
             navController.navigate(GuavaCareRoutes.ROUTE_HOME) {
                 popUpTo(navController.graph.findStartDestination().id) {
@@ -344,7 +350,11 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                 onOpenLogin = { openLogin(AuthGateReason.OPTIONAL) },
                                 onOpenRegister = { openRegister() },
                                 onOpenProfile = { openProfile() },
-                                onOpenInsights = { navigateTopLevel(GuavaCareRoutes.ROUTE_INSIGHTS) },
+                                onOpenInsights = {
+                                    navController.navigate(GuavaCareRoutes.ROUTE_INSIGHTS) {
+                                        launchSingleTop = true
+                                    }
+                                },
                                 onOpenAbout = { navigateTopLevel(GuavaCareRoutes.ROUTE_ABOUT) }
                             )
                         }
@@ -476,7 +486,8 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                             viewModel.updateClassFilter(leafClass)
                                         }
                                         navigateTopLevel(GuavaCareRoutes.ROUTE_HISTORY)
-                                    }
+                                    },
+                                    onBack = { navController.popBackStack() }
                                 )
                             } else {
                                 AuthRequiredFeatureGate(
@@ -603,7 +614,8 @@ fun GuavaCareApp(viewModel: MainViewModel) {
                                 onOpenLogin = { openLogin(AuthGateReason.OPTIONAL) },
                                 onOpenRegister = { openRegister() },
                                 onToggleLanguage = { viewModel.toggleLanguage() },
-                                onBack = { navController.popBackStack() }
+                                onBack = { navController.popBackStack() },
+                                showBackButton = false
                             )
                         }
 

@@ -1,6 +1,8 @@
 package com.guavacare.ai
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -18,6 +20,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.guavacare.ai.core.common.BilingualStrings
 import com.guavacare.ai.core.data.BangladeshLocations
 import com.guavacare.ai.data.local.PreferencesRepository
+import com.guavacare.ai.data.remote.GoogleAuthHelper
+import com.guavacare.ai.data.remote.GoogleAuthHelper.findActivity
 import com.guavacare.ai.domain.model.AppLanguage
 import com.guavacare.ai.domain.model.AuthGateReason
 import com.guavacare.ai.domain.model.AuthUiState
@@ -31,6 +35,7 @@ import com.guavacare.ai.presentation.navigation.visibleTopLevelDestinations
 import com.guavacare.ai.presentation.screens.auth.LoginScreen
 import com.guavacare.ai.presentation.screens.auth.RegisterScreen
 import com.guavacare.ai.presentation.screens.home.HomeScreen
+import com.guavacare.ai.presentation.screens.insights.InsightsScreen
 import com.guavacare.ai.presentation.screens.profile.ProfileScreen
 import com.guavacare.ai.presentation.screens.settings.AccountSettingsCard
 import com.guavacare.ai.presentation.theme.GuavaCareTheme
@@ -476,23 +481,36 @@ class AuthAndLocationFlowTest {
     }
 
     @Test
-    fun historyAndInsightsTabsShowOnlyWhenAuthenticated() {
+    fun historyAndProfileTabsShowOnlyWhenAuthenticatedAndInsightsIsRemovedFromBottomNav() {
         val guestTabs = visibleTopLevelDestinations(isAuthenticated = false)
         assertEquals(3, guestTabs.size)
-        assertFalse(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_HISTORY })
-        assertFalse(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_INSIGHTS })
-        assertTrue(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_HOME })
-        assertTrue(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_SCANNER })
-        assertTrue(guestTabs.any { it.route == GuavaCareRoutes.ROUTE_ABOUT })
+        assertEquals(
+            listOf(
+                GuavaCareRoutes.ROUTE_HOME,
+                GuavaCareRoutes.ROUTE_SCANNER,
+                GuavaCareRoutes.ROUTE_ABOUT
+            ),
+            guestTabs.map { it.route }
+        )
 
         val signedInTabs = visibleTopLevelDestinations(isAuthenticated = true)
         assertEquals(5, signedInTabs.size)
-        assertTrue(signedInTabs.any { it.route == GuavaCareRoutes.ROUTE_HISTORY })
-        assertTrue(signedInTabs.any { it.route == GuavaCareRoutes.ROUTE_INSIGHTS })
+        assertEquals(
+            listOf(
+                GuavaCareRoutes.ROUTE_HOME,
+                GuavaCareRoutes.ROUTE_SCANNER,
+                GuavaCareRoutes.ROUTE_HISTORY,
+                GuavaCareRoutes.ROUTE_PROFILE,
+                GuavaCareRoutes.ROUTE_ABOUT
+            ),
+            signedInTabs.map { it.route }
+        )
+        assertEquals("nav_profile", signedInTabs[3].testTag)
+        assertFalse(signedInTabs.any { it.route == GuavaCareRoutes.ROUTE_INSIGHTS })
     }
 
     @Test
-    fun homeScreenShowsUnlockPromptForGuestAndInsightsSummaryWhenAuthenticated() {
+    fun homeScreenHasSettingsOnlyTopBarAndClickableInsightsCardAboveRecentScans() {
         val strings = BilingualStrings.get(AppLanguage.ENGLISH)
         val profile = UserProfile(
             id = "uid-789",
@@ -530,6 +548,11 @@ class AuthAndLocationFlowTest {
             }
         }
 
+        // Top bar keeps only Settings icon (no language toggle or profile icon on Home)
+        composeRule.onNodeWithTag("open_settings_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("home_language_toggle").assertDoesNotExist()
+        composeRule.onNodeWithTag("home_profile_button").assertDoesNotExist()
+
         // Guest: History & Insights summary hidden; unlock prompt shown
         composeRule.onNodeWithTag("home_hero_card").assertIsDisplayed()
         composeRule.onNodeWithTag("home_orchard_summary_card").assertDoesNotExist()
@@ -540,14 +563,122 @@ class AuthAndLocationFlowTest {
         composeRule.waitForIdle()
         assertTrue(loginClicked)
 
-        // Authenticated: Orchard Insights summary & shortcut shown; unlock card hidden
+        // Authenticated: Orchard Insights card with CTA shown above Recent Scans; no duplicate small Insights tile
         authState.value = AuthUiState.Authenticated(profile)
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("home_language_toggle").assertDoesNotExist()
+        composeRule.onNodeWithTag("home_profile_button").assertDoesNotExist()
+        composeRule.onNodeWithTag("home_open_insights_button").assertDoesNotExist()
         composeRule.onNodeWithTag("home_login_unlock_card").assertDoesNotExist()
         composeRule.onNodeWithTag("home_lazy_column")
             .performScrollToNode(hasTestTag("home_orchard_summary_card"))
-        composeRule.onNodeWithTag("home_orchard_summary_card").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("home_insights_cta_row", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("home_orchard_summary_card")
+            .assertIsDisplayed()
+            .assertTextContains(strings.homeViewFullInsightsAction)
+            .performClick()
         composeRule.waitForIdle()
         assertTrue(insightsClicked)
+    }
+
+    @Test
+    fun insightsScreenShowsBackButtonWhenOpenedFromHomeCard() {
+        val strings = BilingualStrings.get(AppLanguage.ENGLISH)
+        var backClicked = false
+
+        composeRule.setContent {
+            GuavaCareTheme(themeMode = ThemeMode.LIGHT, language = AppLanguage.ENGLISH) {
+                InsightsScreen(
+                    strings = strings,
+                    language = AppLanguage.ENGLISH,
+                    insights = OrchardInsightsSummary(totalScans = 3, healthyCount = 2, affectedCount = 1),
+                    onStartScan = {},
+                    onBack = { backClicked = true }
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("insights_back_button")
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.waitForIdle()
+        assertTrue(backClicked)
+    }
+
+    @Test
+    fun settingsScreenOmitsGrowerAccountCard() {
+        val strings = BilingualStrings.get(AppLanguage.ENGLISH)
+        val modelHealth = com.guavacare.ai.ai.inference.ModelHealthStatus(
+            isProductionReady = true,
+            modelVersion = "1.0",
+            multiclassStrategy = "OvO",
+            tflitePresent = true,
+            tfliteSource = "bundled",
+            hasImportedTflite = false,
+            classifierWeightsReady = true,
+            missingAssets = emptyList(),
+            checks = emptyList()
+        )
+
+        composeRule.setContent {
+            GuavaCareTheme(themeMode = ThemeMode.LIGHT, language = AppLanguage.ENGLISH) {
+                com.guavacare.ai.presentation.screens.settings.SettingsScreen(
+                    strings = strings,
+                    preferences = com.guavacare.ai.domain.model.UserPreferences(),
+                    modelHealth = modelHealth,
+                    coldInitMs = 45L,
+                    lastLatencyMs = 28L,
+                    storageBytes = 2048L,
+                    onLanguageSelected = {},
+                    onThemeSelected = {},
+                    onStrictQualityToggle = {},
+                    onLeafGuideToggle = {},
+                    onAutoSaveToggle = {},
+                    onDevMockModeToggle = {},
+                    onClearAllScans = {},
+                    onOpenResearchInfo = {},
+                    onBack = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("settings_lazy_column").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_account_card").assertDoesNotExist()
+    }
+
+    @Test
+    fun googleAuthHelperUnwrapsNestedContextWrapperToActivity() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        assertNull(appContext.findActivity())
+
+        val activity = org.robolectric.Robolectric.buildActivity(Activity::class.java).create().get()
+        val wrappedOnce = ContextWrapper(activity)
+        val wrappedTwice = ContextWrapper(wrappedOnce)
+
+        assertEquals(activity, activity.findActivity())
+        assertEquals(activity, wrappedOnce.findActivity())
+        assertEquals(activity, wrappedTwice.findActivity())
+    }
+
+    @Test
+    fun googleAuthHelperClassifiesPlayServicesConfigAndWebCancelErrorsAccurately() {
+        // Genuine user cancellation should NOT trigger fallback
+        assertFalse(GoogleAuthHelper.isPlayServicesConfigOrBlockedError(null))
+        assertFalse(GoogleAuthHelper.isPlayServicesConfigOrBlockedError(""))
+        assertFalse(GoogleAuthHelper.isPlayServicesConfigOrBlockedError("activity is cancelled by the user."))
+
+        // SHA-1 / Play Services / cooldown errors SHOULD trigger fallback
+        assertTrue(
+            GoogleAuthHelper.isPlayServicesConfigOrBlockedError(
+                "[28436] Caller has been temporarily blocked due to too many canceled sign-in prompts."
+            )
+        )
+        assertTrue(GoogleAuthHelper.isPlayServicesConfigOrBlockedError("[16] Account reauth failed."))
+        assertTrue(GoogleAuthHelper.isPlayServicesConfigOrBlockedError("Cannot find a matching credential."))
+        assertTrue(GoogleAuthHelper.isPlayServicesConfigOrBlockedError("Developer console is not set up correctly."))
+
+        // Web OAuth cancellation detection
+        assertTrue(GoogleAuthHelper.isWebAuthCancelled(RuntimeException("The web operation was canceled by the user.")))
+        assertFalse(GoogleAuthHelper.isWebAuthCancelled(RuntimeException("A network error occurred.")))
     }
 }

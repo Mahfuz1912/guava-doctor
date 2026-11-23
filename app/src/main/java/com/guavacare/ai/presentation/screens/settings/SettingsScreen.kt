@@ -145,23 +145,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Grower Account & Cloud Sync
-            item {
-                AccountSettingsCard(
-                    strings = strings,
-                    language = preferences.language,
-                    authState = authState,
-                    remainingGuestScans = remainingGuestScans,
-                    cloudSyncStatus = cloudSyncStatus,
-                    isUpdatingProfile = isAuthLoading,
-                    onOpenLogin = onOpenLogin,
-                    onOpenRegister = onOpenRegister,
-                    onUpdateProfile = onUpdateProfile,
-                    onSignOut = onSignOut,
-                    onOpenProfile = onOpenProfile
-                )
-            }
-
             // Language & Theme
             item {
                 SettingsGroupCard(title = "${strings.languageLabel} & ${strings.themeLabel}") {
@@ -258,7 +241,7 @@ fun SettingsScreen(
                 SettingsGroupCard(title = strings.appUpdatesSectionTitle) {
                     DiagnosticMonoLine(
                         label = strings.aboutVersionLabel,
-                        value = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+                        value = "v${BuildConfig.VERSION_NAME}"
                     )
                     val statusMsg = when (updateState) {
                         is AppUpdateState.Checking -> strings.checkingForUpdates

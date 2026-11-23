@@ -5,12 +5,12 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.guavacare.ai.core.common.AppStrings
 
@@ -60,11 +60,11 @@ val topLevelDestinations = listOf(
         testTag = "nav_history"
     ),
     TopLevelDestination(
-        route = GuavaCareRoutes.ROUTE_INSIGHTS,
-        selectedIcon = Icons.Filled.Insights,
-        unselectedIcon = Icons.Outlined.Insights,
-        labelProvider = { it.navInsights },
-        testTag = "nav_insights"
+        route = GuavaCareRoutes.ROUTE_PROFILE,
+        selectedIcon = Icons.Filled.Person,
+        unselectedIcon = Icons.Outlined.Person,
+        labelProvider = { it.navProfile },
+        testTag = "nav_profile"
     ),
     TopLevelDestination(
         route = GuavaCareRoutes.ROUTE_ABOUT,
@@ -76,13 +76,14 @@ val topLevelDestinations = listOf(
 )
 
 /**
- * History and Insights tabs are visible only when the user is signed in.
+ * History and Profile tabs are visible only when the user is signed in.
+ * Insights is accessed via the dedicated Orchard Insights card on the Home Page.
  */
 fun visibleTopLevelDestinations(isAuthenticated: Boolean): List<TopLevelDestination> =
     if (isAuthenticated) {
         topLevelDestinations
     } else {
         topLevelDestinations.filterNot {
-            it.route == GuavaCareRoutes.ROUTE_HISTORY || it.route == GuavaCareRoutes.ROUTE_INSIGHTS
+            it.route == GuavaCareRoutes.ROUTE_HISTORY || it.route == GuavaCareRoutes.ROUTE_PROFILE
         }
     }
